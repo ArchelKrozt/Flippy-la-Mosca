@@ -1,0 +1,1484 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>FLIPPY LA MOSCA</title>
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#14121c; --panel:#1f1b2e; --line:#3a3350; --ink:#e8e3ff; --dim:#8a82a8; --acc:#ffd23f;
+          --good:#7bd389; --bad:#ff5e5b; --pink:#ff6fae; --blue:#4d9de0; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:18px/1.3 "VT323", "Courier New", monospace; padding:16px; }
+  h1 { font-family:"Press Start 2P", monospace; font-size:18px; margin:0 0 4px; color:var(--acc); letter-spacing:1px; }
+  .sub { color:var(--dim); font-size:18px; margin-bottom:12px; }
+  .wrap { display:grid; grid-template-columns:minmax(0, 1120px) minmax(0, 330px); gap:16px; align-items:start; }
+  @media (max-width: 1100px) { .wrap { grid-template-columns:minmax(0, 1fr); } }
+  .col { display:flex; flex-direction:column; gap:12px; min-width:0; }
+  canvas { image-rendering:pixelated; image-rendering:crisp-edges; display:block; background:#000; border:4px solid var(--line); }
+  [hidden] { display:none !important; }
+  .arena-wrap { position:relative; }
+  .backdrop { position:fixed; inset:0; background:rgba(8,6,14,0.72); display:flex; align-items:center; justify-content:center; padding:16px; z-index:10; }
+  .modal { width:min(760px, 100%); max-height:calc(100vh - 32px); overflow:auto; box-shadow:8px 8px 0 #000; }
+  .modal.wide { width:min(1200px, 100%); }
+  .resume { display:flex; flex-wrap:wrap; gap:10px; align-items:center; background:#2a2440; border:3px solid var(--acc);
+            padding:8px 12px; margin-bottom:12px; font-size:18px; }
+  .savelist { display:flex; flex-direction:column; gap:6px; margin-top:10px; max-height:50vh; overflow-y:auto; }
+  .saverow { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; border:2px solid var(--line);
+             padding:6px 8px; font-size:16px; }
+  .saverow small { display:block; color:var(--dim); font-size:15px; }
+  .hist { display:grid; grid-template-columns:minmax(0, 3fr) minmax(0, 2fr); gap:14px; }
+  @media (max-width: 900px) { .hist { grid-template-columns:minmax(0, 1fr); } }
+  #tree_big { height:60vh; overflow:auto; background:#17142288; border:2px solid var(--line); }
+  #tree_big g[data-id] { cursor:pointer; }
+  #tree_big g[data-id]:hover rect { stroke:#fff3b0; }
+  select { font:inherit; font-size:18px; background:#14121c; color:var(--ink); border:3px solid #4b4368; padding:4px 6px; max-width:100%; }
+  #h_card { border:2px solid var(--line); padding:6px 10px; margin-bottom:8px; font-size:16px; }
+  #h_card .kv { font-size:16px; grid-template-columns:110px minmax(0,1fr); gap:2px 10px; }
+  #h_card a { color:var(--acc); cursor:pointer; text-decoration:underline; }
+  #timeline { height:calc(60vh - 46px); overflow-y:auto; border:2px solid var(--line); padding:6px 8px; font-size:16px; }
+  #timeline div { display:grid; grid-template-columns:64px 44px minmax(0,1fr); gap:6px; padding:2px 0; border-bottom:1px solid #2d2742; }
+  #timeline .tt { color:var(--dim); text-align:right; font-variant-numeric:tabular-nums; }
+  #timeline .gg { color:var(--acc); }
+  .modal-head { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .placing { position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:2; display:flex; gap:10px; align-items:center;
+             background:var(--acc); color:#14121c; border:3px solid #fff3b0; padding:5px 10px; font-size:18px; white-space:nowrap; box-shadow:4px 4px 0 #000; }
+  .placing button { background:#14121c; color:var(--acc); }
+  #arena { width:100%; aspect-ratio:320/200; cursor:crosshair; }
+  #labels { position:absolute; inset:4px; pointer-events:none; overflow:hidden; }
+  #labels span { position:absolute; transform:translate(-50%, -100%); font-size:15px; white-space:nowrap;
+                 text-shadow:1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; }
+  #brain { width:100%; aspect-ratio:240/120; }
+  /* floating windows: live data you can keep open while watching the arena */
+  .float { position:fixed; z-index:20; width:min(460px, 94vw); max-height:78vh; display:flex; flex-direction:column;
+           background:var(--panel); border:4px solid var(--line); box-shadow:8px 8px 0 #000; }
+  .float-head { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:6px 8px 6px 10px;
+                background:#2a2440; cursor:move; user-select:none; touch-action:none; }
+  .float-head h3 { margin:0; }
+  .float-body { overflow:auto; padding:10px; }
+  .dock { display:flex; flex-direction:column; gap:6px; }
+  .dockbtn { display:flex; gap:10px; align-items:center; text-align:left; width:100%; font-size:18px; padding:8px 10px; }
+  .dockbtn .ico { font-size:22px; width:28px; text-align:center; }
+  .dockbtn small { display:block; font-size:14px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
+  .dockbtn.on small { color:#3a3014; }
+  .quick .kv { grid-template-columns:96px minmax(0,1fr); }
+  #eye { width:100%; aspect-ratio:300/64; }
+  #w_exp .hd { color:var(--acc); font-size:15px; }
+  #exp_fns { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:5px; margin-top:4px; }
+  #exp_fns button { text-align:left; font-size:15px; padding:5px 7px; }
+  #exp_fns button small { display:block; color:var(--dim); font-size:13px; }
+  #exp_fns button.on { background:#ff5e5b; border-color:#ffb3b1; color:#1b0b0b; }
+  #exp_fns button.on small { color:#3b1414; }
+  .exp-info { border:2px solid var(--line); padding:6px 8px; margin-top:6px; font-size:15px; min-height:74px; line-height:1.35; }
+  .exp-mapwrap { position:relative; }
+  #expmap { width:100%; aspect-ratio:240/120; cursor:crosshair; }
+  .exp-tip { position:absolute; z-index:5; pointer-events:none; width:min(330px, 70%); background:#14121cf2; border:2px solid var(--acc);
+             padding:6px 8px; font-size:14px; line-height:1.3; box-shadow:4px 4px 0 #000; }
+  .exp-tip b { color:var(--acc); }
+  #exp_active div { display:flex; justify-content:space-between; gap:8px; align-items:center; border-bottom:1px solid #2d2742; padding:3px 0; font-size:15px; }
+  #memmap { width:100%; background:#14121c; border:2px solid var(--line); }
+  .memcols { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin-top:8px; font-size:15px; }
+  .memcols .hd, #w_mem .hd { color:var(--acc); font-size:15px; }
+  #mem_log { font-size:15px; color:var(--dim); max-height:150px; overflow-y:auto; }
+  #mem_log div { border-bottom:1px solid #2d2742; padding:1px 0; }
+  .eye-labels { display:flex; justify-content:space-between; font-size:14px; color:var(--dim); margin-bottom:4px; }
+  .eye-det { display:grid; grid-template-columns:minmax(0,1fr) 70px 70px; gap:3px 10px; font-size:15px; margin-top:8px; align-items:center; }
+  .eye-det .bar { height:8px; }
+  .eye-det .hd { color:var(--acc); font-size:14px; }
+  .panel { background:var(--panel); border:4px solid var(--line); padding:10px; }
+  h3 { font-size:20px; margin:0 0 8px; color:var(--acc); }
+  .hint { font-size:15px; color:var(--dim); margin:-4px 0 8px; line-height:1.7; }
+  .tools, .row { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  button { font:inherit; font-size:18px; background:#2d2742; color:var(--ink); border:3px solid #4b4368; padding:7px 8px; cursor:pointer; }
+  button.on { background:var(--acc); color:#14121c; border-color:#fff3b0; }
+  button:hover { border-color:var(--acc); }
+  button.sm { font-size:15px; padding:4px 6px; }
+  button.f.on { background:var(--pink); border-color:#ffc2dc; color:#2a0d1b; }
+  button.m.on { background:var(--blue); border-color:#b7dcff; color:#0b1a2e; }
+  label { font-size:16px; color:var(--dim); display:flex; gap:6px; align-items:center; }
+  input[type=range] { width:110px; accent-color:var(--acc); }
+  .pm { display:flex; align-items:center; gap:4px; font-size:16px; color:var(--dim); }
+  .pm button { font-size:18px; line-height:1; padding:1px 7px; min-width:26px; }
+  .pm b { color:var(--ink); display:inline-block; width:4.5ch; text-align:right; font-variant-numeric:tabular-nums; }
+  input[type=text] { font:inherit; font-size:18px; background:#14121c; color:var(--ink); border:3px solid #4b4368; padding:6px; width:150px; }
+  .bars { display:grid; grid-template-columns:minmax(0, 1fr) 110px 30px; gap:3px 8px; font-size:15px; align-items:center; }
+  .bars .h { grid-column:1/-1; color:var(--acc); font-size:15px; margin-top:6px; }
+  .bars .h:first-child { margin-top:0; }
+  .bar { height:8px; background:#2d2742; position:relative; }
+  .bar i { position:absolute; inset:0 auto 0 0; background:var(--good); }
+  .bars.m .bar i { background:var(--acc); }
+  .bars span.v { text-align:right; font-variant-numeric:tabular-nums; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fill, minmax(290px, 1fr)); gap:6px 14px; font-size:16px; color:var(--dim); }
+  .stats b { color:var(--ink); }
+  .stats > span { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }  /* one line each: no height jumps */
+  #log { font-size:16px; color:var(--dim); white-space:pre; height:196px; overflow:hidden; line-height:1.35; }  /* 9 lines, newest at the bottom */
+  .kv { display:grid; grid-template-columns:130px minmax(0,1fr); gap:6px 10px; font-size:16px; align-items:center; }
+  .kv > span:nth-child(odd) { color:var(--dim); }
+  .meter { height:8px; background:#2d2742; }
+  .meter i { display:block; height:100%; background:var(--good); }
+  .creator { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:10px 18px; }
+  .creator label { justify-content:space-between; }
+  .creator label b { color:var(--ink); width:28px; text-align:right; }
+  #desc { font-size:15px; color:var(--ink); line-height:1.8; min-height:56px; margin:8px 0; }
+  #dolls { display:flex; flex-direction:column; gap:6px; height:215px; overflow-y:auto; margin-top:8px; }
+  .doll { display:grid; grid-template-columns:12px minmax(0,1fr) auto; gap:8px; align-items:center; font-size:15px;
+          background:#17142233; border:2px solid var(--line); padding:5px 6px; }
+  .doll .dot { width:10px; height:10px; }
+  .doll small { color:var(--dim); display:block; margin-top:3px; }
+  .empty { font-size:15px; color:var(--dim); }
+  #tree { height:280px; overflow:auto; background:#17142288; border:2px solid var(--line); }
+  #tree svg text { font-family:"VT323", monospace; }
+</style>
+</head>
+<body>
+<h1>FLIPPY LA MOSCA</h1>
+<div class="resume" id="sim_error" hidden style="border-color:var(--bad)">
+  <span>⚠ La simulación se detuvo por un error: <b id="sim_error_msg"></b>. Pulsa PAUSA para reanudar o REINICIAR.</span>
+</div>
+<div class="resume" id="off_done" hidden style="border-color:var(--good)">
+  <span>⏻ Partida guardada y FLIPPY apagado. Ya puedes cerrar esta pestaña. Para volver a jugar, en la Terminal:
+  <b>python3 server.py</b> (te ofrecerá ▶ CONTINUAR).</span>
+</div>
+<div class="resume" id="resume" hidden>
+  <span>💾 Tienes una partida autoguardada: <b id="resume_info"></b></span>
+  <button id="resume_yes">▶ CONTINUAR</button><button id="resume_no">EMPEZAR DE CERO</button>
+</div>
+<div class="sub" style="font-size:18px">Conectoma completo de Drosophila (FlyWire v783 · 138.639 neuronas · 15 M de conexiones) en lazo cerrado con un cuerpo 2D</div>
+<div class="wrap">
+  <div class="col">
+    <div class="arena-wrap"><canvas id="arena" width="480" height="300"></canvas><div id="labels"></div>
+      <div class="placing" id="placing" hidden>🪰 Haz clic en la arena para colocar a <b id="placing_name"></b> · Esc <button class="sm" id="placing_cancel">CANCELAR</button></div></div>
+    <div class="tools" id="tools"></div>
+    <div class="row">
+      <button id="pause">PAUSA</button><button id="reset">REINICIAR</button>
+      <button id="btn_save">💾 GUARDAR</button><button id="btn_load">📂 CARGAR</button>
+      <span id="off_box"><button id="btn_off" title="Guarda la partida y cierra el programa FLIPPY (el servidor). Al volver a abrirlo te ofrecerá continuar.">⏻ GUARDAR Y APAGAR</button></span>
+      <button id="btn_daynight" title="Ciclo de día y noche: de noche las moscas duermen, mejor bajo una hoja"></button>
+      <label title="Más espacio = menos encuentros y roces. La población máxima depende del área.">arena
+        <select id="arena_size"><option value="S">pequeña (máx. 10 moscas)</option><option value="M">mediana (máx. 22)</option><option value="L">grande (máx. 40)</option></select></label>
+      <div class="pm" title="Velocidad de la simulación: − más lenta · + más rápida">velocidad
+        <button class="sm" data-step="speed:-1" aria-label="Más lenta">−</button><input type="range" id="speed" min="0.1" max="2" step="0.1" value="1"><button class="sm" data-step="speed:1" aria-label="Más rápida">+</button><b id="speed_v"></b></div>
+      <div class="pm" title="Cuánto camina Flippy por su cuenta (el cerebro lo modula): − más quieta · + camina más">ganas de caminar
+        <button class="sm" data-step="walk:-1" aria-label="Menos ganas de caminar">−</button><input type="range" id="walk" min="0" max="1" step="0.05" value="0.35"><button class="sm" data-step="walk:1" aria-label="Más ganas de caminar">+</button><b id="walk_v"></b></div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="panel">
+      <div class="modal-head"><h3>MOSCAS MUÑECA</h3><div class="row"><button class="sm" id="btn_rel">🕸 RELACIONES</button><button class="sm" id="open_creator">🪰 CREAR MUÑECA</button></div></div>
+      <div class="hint">Las muñecas tienen comportamiento programado. Solo Flippy tiene cerebro real: las muñecas le llegan a través de sus sentidos (vista, olfato, oído y tacto).</div>
+      <div id="dolls"></div>
+    </div>
+    <div class="panel">
+      <div class="modal-head"><h3>ÁRBOL FAMILIAR</h3><button class="sm" id="btn_history">📜 HISTORIA</button></div>
+      <div class="hint">Huevo → larva (busca comida) → pupa → adulto → vejez, en tiempo comprimido (~45 s de huevo a adulto, ~2,5 min de vida). Las crías heredan la mezcla de los rasgos de sus padres con una pequeña mutación. Flippy pone huevos cuando su oviDN lo decide. Máximo 12 moscas a la vez; las muñecas que creas tú no envejecen.</div>
+      <div id="tree"></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel quick">
+      <div class="modal-head"><h3>FLIPPY</h3><span style="font-size:15px;color:var(--dim)">♀ cerebro real</span></div>
+      <div class="kv">
+        <span>estado</span><b id="r_state"></b>
+        <span>energía</span><div class="meter"><i id="r_energy"></i></div>
+        <span>época</span><div><button class="sm" id="r_heat"></button></div>
+        <span>navegación</span><div><button class="sm" id="r_assist" title="Navegación asistida: el cerebro decide si le atrae algo; un reflejo del cuerpo elige la dirección"></button></div>
+        <span>ahora</span><span id="r_chemo" style="font-size:16px"></span>
+      </div>
+    </div>
+    <div class="panel dock">
+      <h3>PANELES</h3>
+      <button class="dockbtn" data-win="w_fly"><span class="ico">🪰</span><span>FLIPPY EN DETALLE<small id="d_fly"></small></span></button>
+      <button class="dockbtn" data-win="w_exp"><span class="ico">🧪</span><span>EXPERIMENTO: SILENCIAR<small id="d_exp"></small></span></button>
+      <button class="dockbtn" data-win="w_mem"><span class="ico">🧭</span><span>MEMORIA DE FLIPPY<small id="d_mem"></small></span></button>
+      <button class="dockbtn" data-win="w_eye"><span class="ico">👁</span><span>LO QUE VE FLIPPY<small id="d_eye"></small></span></button>
+      <button class="dockbtn" data-win="w_brain"><span class="ico">🧠</span><span>CEREBRO<small id="d_brain"></small></span></button>
+      <button class="dockbtn" data-win="w_sens"><span class="ico">📶</span><span>SENTIDOS<small id="d_sens"></small></span></button>
+      <button class="dockbtn" data-win="w_mot"><span class="ico">⚡</span><span>ÓRDENES AL CUERPO<small id="d_mot"></small></span></button>
+    </div>
+    <div class="panel"><h3>EVENTOS</h3><div id="log"></div></div>
+  </div>
+</div>
+<div class="float" id="w_fly" hidden role="dialog" aria-labelledby="wt_fly">
+  <div class="float-head"><h3 id="wt_fly">🪰 FLIPPY EN DETALLE</h3><button class="sm" data-fclose aria-label="Cerrar">✖</button></div>
+  <div class="float-body">
+    <div class="kv">
+      <span>sexo</span><span>♀ hembra <span style="color:var(--dim)">(el cerebro FlyWire es de una hembra)</span></span>
+      <span>fecundada</span><b id="r_mated"></b>
+      <span>pretendientes</span><span id="r_suitors"></span>
+      <span>huevos</span><span id="r_eggs"></span>
+      <span>memoria</span><span id="r_memory"></span>
+      <span>sueño</span><span id="r_sleep"></span>
+      <span>sustos</span><span id="r_hab"></span>
+    </div>
+    <div class="hint" style="margin:10px 0 0">Época de apareamiento = impulso tónico en pC1 (estado hormonal). Solo acepta a un macho si además su vpoDN se activa al oír el canto.
+      Navegación asistida: el cerebro decide si le atrae un olor, una mosca o un recuerdo; un reflejo del cuerpo elige la dirección (en este modelo el lado del olor no llega a las neuronas motoras).
+      Memoria: sinapsis Kenyon→MBON de su cuerpo pedunculado que cambian con el dolor (PPL1) y la recompensa (PAM).</div>
+  </div>
+</div>
+<div class="float" id="w_exp" hidden role="dialog" aria-labelledby="wt_exp" style="width:min(720px, 94vw)">
+  <div class="float-head"><h3 id="wt_exp">🧪 EXPERIMENTO: SILENCIAR NEURONAS</h3><button class="sm" data-fclose aria-label="Cerrar">✖</button></div>
+  <div class="float-body">
+    <div class="hint" style="margin:0 0 8px">Silenciar = esas neuronas <b>no pueden disparar</b>, como en los experimentos reales con luz (optogenética, GtACR1) o con el canal Kir2.1. Todo lo que dependía de ellas en el cerebro de Flippy deja de recibir su señal, y verás qué comportamiento se pierde. Afecta solo a Flippy (las muñecas no tienen cerebro). Se puede deshacer en cualquier momento y se guarda con la partida.</div>
+    <div class="hd">1 · POR FUNCIÓN <span style="color:var(--dim)">(pasa el ratón para ver qué es y qué pasará)</span></div>
+    <div id="exp_fns"></div>
+    <div id="exp_info" class="exp-info">Pasa el ratón por una función o por el cerebro para ver qué estás tocando.</div>
+    <div class="hd" style="margin-top:10px">2 · O HAZ CLIC EN UNA ZONA DEL CEREBRO <span style="color:var(--dim)">(vista frontal: cada punto es una columna de neuronas)</span></div>
+    <div class="row" style="margin:4px 0"><label>tamaño del láser <input type="range" id="exp_r" min="3" max="20" step="1" value="8"><b id="exp_r_v"></b></label>
+      <span style="font-size:15px;color:var(--dim)">clic en una zona silenciada = restaurarla</span></div>
+    <div class="exp-mapwrap"><canvas id="expmap" width="240" height="120"></canvas><div id="exp_tip" class="exp-tip" hidden></div></div>
+    <div class="row" style="margin-top:10px;justify-content:space-between"><span class="hd">3 · SILENCIADAS AHORA</span><button class="sm" id="exp_clear">↺ RESTAURAR TODO</button></div>
+    <div id="exp_active"></div>
+  </div>
+</div>
+<div class="float" id="w_mem" hidden role="dialog" aria-labelledby="wt_mem" style="width:min(640px, 94vw)">
+  <div class="float-head"><h3 id="wt_mem">🧭 MEMORIA DE FLIPPY</h3><button class="sm" data-fclose aria-label="Cerrar">✖</button></div>
+  <div class="float-body">
+    <canvas id="memmap" width="600" height="375"></canvas>
+    <div class="memcols">
+      <div><div class="hd">😊 le gusta</div><div id="mem_good"></div></div>
+      <div><div class="hd">😠 lo evita</div><div id="mem_bad"></div></div>
+      <div><div class="hd">😐 indiferente / aún no conoce</div><div id="mem_meh"></div></div>
+    </div>
+    <div class="hd" style="margin-top:8px">LO QUE HA IDO APRENDIENDO</div>
+    <div id="mem_log"></div>
+    <div class="hint" style="margin:8px 0 0">Memoria real de su cuerpo pedunculado: cada lugar (hoja, comida, zona de calor) y cada mosca tiene su olor, que activa un grupo de células de Kenyon. Dolor (golpes, calor → dopamina PPL1) o recompensa (comer, dormir tranquila → dopamina PAM) cambian esas sinapsis. Con navegación asistida, el cuerpo la lleva a su hoja o comedero favorito y la aparta de lo que recuerda mal. Se consolida al dormir y se extingue si la experiencia cambia.</div>
+  </div>
+</div>
+<div class="float" id="w_eye" hidden role="dialog" aria-labelledby="wt_eye" style="width:min(620px, 94vw)">
+  <div class="float-head"><h3 id="wt_eye">👁 LO QUE VE FLIPPY</h3><button class="sm" data-fclose aria-label="Cerrar">✖</button></div>
+  <div class="float-body">
+    <div class="eye-labels"><span>◀ atrás · OJO IZQUIERDO</span><span>frente</span><span>OJO DERECHO · atrás ▶</span></div>
+    <canvas id="eye" width="300" height="64"></canvas>
+    <div class="eye-det" id="eye_det"></div>
+    <div class="hint" style="margin:8px 0 0">Panorama de ~300° alrededor de Flippy (el frente en el centro), calculado a partir del mundo. A su cerebro no le llega esta imagen píxel a píxel: le llega por sus neuronas detectoras (abajo), cada una para lo que la mosca real detecta con ella. Probado en el conectoma: LPLC1 la hace girar lejos de los obstáculos; LC10a/LC11, hacia otras moscas; LC4/LPLC2 disparan la fibra gigante; los ocelos avisan de la luz.</div>
+  </div>
+</div>
+<div class="float" id="w_brain" hidden role="dialog" aria-labelledby="wt_brain">
+  <div class="float-head"><h3 id="wt_brain">🧠 CEREBRO · VISTA FRONTAL</h3><button class="sm" data-fclose aria-label="Cerrar">✖</button></div>
+  <div class="float-body">
+    <canvas id="brain" width="240" height="120"></canvas>
+    <div class="hint" style="margin:8px 0 0">Cada punto es una zona del cerebro de Flippy vista de frente; se ilumina cuando sus neuronas disparan. 138.639 neuronas simuladas en tiempo real.</div>
+  </div>
+</div>
+<div class="float" id="w_sens" hidden role="dialog" aria-labelledby="wt_sens">
+  <div class="float-head"><h3 id="wt_sens">👁 SENTIDOS → NEURONAS (Hz)</h3><button class="sm" data-fclose aria-label="Cerrar">✖</button></div>
+  <div class="float-body"><div class="bars" id="sens"></div></div>
+</div>
+<div class="float" id="w_mot" hidden role="dialog" aria-labelledby="wt_mot">
+  <div class="float-head"><h3 id="wt_mot">⚡ ÓRDENES DEL CEREBRO → CUERPO (Hz por neurona)</h3><button class="sm" data-fclose aria-label="Cerrar">✖</button></div>
+  <div class="float-body"><div class="bars m" id="mot"></div></div>
+</div>
+<div class="backdrop" id="m_saves" hidden>
+  <div class="panel modal" role="dialog" aria-modal="true" aria-labelledby="s_title">
+    <div class="modal-head"><h3 id="s_title">GUARDAR PARTIDA</h3><button class="sm" data-close="m_saves" aria-label="Cerrar">✖</button></div>
+    <div class="row" id="s_saverow">
+      <label>nombre <input type="text" id="s_name" maxlength="40" value="Mi partida"></label>
+      <button id="s_do_save">💾 GUARDAR</button>
+    </div>
+    <div class="hint" id="s_hint" style="margin-top:8px"></div>
+    <div class="savelist" id="s_list"></div>
+  </div>
+</div>
+<div class="backdrop" id="m_rel" hidden>
+  <div class="panel modal wide" role="dialog" aria-modal="true" aria-labelledby="r_title">
+    <div class="modal-head"><h3 id="r_title">RELACIONES</h3><button class="sm" data-close="m_rel" aria-label="Cerrar">✖</button></div>
+    <div class="hint">Líneas <b>punteadas</b> desde Flippy = su <b>memoria real</b> (<b style="color:#ff5e5b">roja</b> la recuerda mal, <b style="color:#7bd389">verde</b> bien, <b style="color:#ffd23f">dorada</b> indiferente): sinapsis Kenyon→MBON de su cerebro que cambiaron al oler a esa mosca con dolor (golpes → dopamina PPL1) o recompensa (comer → dopamina PAM). Líneas <b style="color:#7bd389">verdes</b> / <b style="color:#ff5e5b">rojas</b> entre muñecas = amistad / enemistad programadas (parentesco, cópulas, peleas, convivencia). Grosor = intensidad.</div>
+    <div id="rel_graph" style="overflow:auto"></div>
+  </div>
+</div>
+<div class="backdrop" id="m_history" hidden>
+  <div class="panel modal wide" role="dialog" aria-modal="true" aria-labelledby="h_title">
+    <div class="modal-head"><h3 id="h_title">HISTORIA FAMILIAR</h3><button class="sm" data-close="m_history" aria-label="Cerrar">✖</button></div>
+    <div class="row" style="margin-bottom:6px">
+      <label>ver la historia de <select id="h_who"></select></label>
+      <label>profundidad <select id="h_depth">
+        <option value="1">padres, parejas e hijos</option><option value="2">2 generaciones</option><option value="99">todo el linaje</option>
+      </select></label>
+      <button class="sm" id="h_all">VER TODAS</button>
+      <span style="font-size:15px;color:var(--dim)">o haz clic en una mosca del árbol</span>
+    </div>
+    <div class="hint" id="h_stats"></div>
+    <div class="hist">
+      <div><div class="bars"><div class="h" id="h_tree_title">ÁRBOL DE GENERACIONES</div></div><div id="tree_big"></div></div>
+      <div>
+        <div id="h_card" hidden></div>
+        <div class="row" id="h_filters" style="margin-bottom:6px"></div>
+        <div id="timeline"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="backdrop" id="modal" hidden>
+  <div class="panel modal" role="dialog" aria-modal="true" aria-labelledby="m_title">
+    <div class="modal-head"><h3 id="m_title">NUEVA MOSCA MUÑECA</h3><button class="sm" id="m_close" aria-label="Cerrar">✖</button></div>
+      <div class="creator">
+        <div class="col" style="gap:8px">
+          <label>nombre <input type="text" id="f_name" maxlength="14" value="Lola"></label>
+          <div class="row"><span style="font-size:16px;color:var(--dim)">sexo</span>
+            <button class="f on" id="f_F">♀ HEMBRA</button><button class="m" id="f_M">♂ MACHO</button></div>
+          <div class="row"><button id="f_mating">❤ ÉPOCA DE APAREAMIENTO: NO</button></div>
+        </div>
+        <div class="col" style="gap:6px">
+          <label>violencia <input type="range" id="f_aggression" min="0" max="1" step="0.05" value="0"><b id="v_aggression"></b></label>
+          <label>ayudante <input type="range" id="f_helper" min="0" max="1" step="0.05" value="0"><b id="v_helper"></b></label>
+          <label>sociable <input type="range" id="f_social" min="0" max="1" step="0.05" value="0.5"><b id="v_social"></b></label>
+          <label>velocidad <input type="range" id="f_speed" min="0" max="1" step="0.05" value="0.5"><b id="v_speed"></b></label>
+          <label>tamaño <input type="range" id="f_size" min="0.7" max="1.4" step="0.05" value="1"><b id="v_size"></b></label>
+          <label title="Solo machos: canta más fuerte y llega antes a intentar la cópula">calidad del canto ♂ <input type="range" id="f_song" min="0" max="1" step="0.05" value="0.6"><b id="v_song"></b></label>
+          <label title="Solo machos: probabilidad de volver a intentarlo tras un rechazo">insistencia ♂ <input type="range" id="f_persistence" min="0" max="1" step="0.05" value="0.5"><b id="v_persistence"></b></label>
+        </div>
+      </div>
+      <div id="desc"></div>
+    <div class="row">
+      <button id="place">✔ COLOCAR EN LA ARENA</button>
+      <button id="random">🎲 AL AZAR</button>
+      <button id="save" hidden>💾 GUARDAR CAMBIOS</button>
+      <button id="cancel">CANCELAR</button>
+    </div>
+  </div>
+</div>
+<script>
+// ------------------------------------------------------------------ labels (es)
+const STATE_ES = { walk:"caminando", feed:"comiendo", groom:"acicalándose", fly:"volando (escape)", mate:"copulando",
+  sleep:"durmiendo 💤", startle:"se aleja asustada" };
+const face = v => v <= -0.3 ? "😠" : v >= 0.3 ? "😊" : "😐";
+const fmtOp = v => (v > 0 ? "+" : "") + v.toFixed(2).replace(".", ",");
+const COURT_ES = ["se orienta hacia ella", "la toca con la pata", "le canta con un ala", "intenta la cópula"];
+const DOLL_STATE_ES = { wander:"paseando", approach:"se acerca", avoid:"se aleja", court:"cortejando", lunge:"embistiendo",
+  fight:"peleando con otro macho", retreat:"se retira derrotado", sleep:"durmiendo 💤", to_bed:"va a dormir", avoid_enemy:"evita a su enemigo", with_friend:"va con su amistad",
+  fetch:"busca comida", deliver:"lleva comida", defend:"defendiendo", flyaway:"huye volando", copulate:"copulando" };
+const SENS = [
+  "GUSTO (patas)",
+  ["sugar_L","Azúcar · izq.","GRN de azúcar"], ["sugar_R","Azúcar · der.","GRN de azúcar"],
+  ["bitter_L","Amargo · izq.","GRN amargos"], ["bitter_R","Amargo · der.","GRN amargos"],
+  "OLFATO (antenas)",
+  ["odor_good_L","Olor a comida · izq.","ORN DM1/DM4/DP1m/VM7d"], ["odor_good_R","Olor a comida · der.","ORN DM1/DM4/DP1m/VM7d"],
+  ["odor_bad_L","CO₂ · izq.","ORN V / DA2"], ["odor_bad_R","CO₂ · der.","ORN V / DA2"],
+  "VISTA",
+  ["loom_L","Sombra que se acerca · izq.","LC4 / LPLC2"], ["loom_R","Sombra que se acerca · der.","LC4 / LPLC2"],
+  ["fly_seen_L","Ve una mosca · izq.","LC10a / LC11"], ["fly_seen_R","Ve una mosca · der.","LC10a / LC11"],
+  ["obstacle_L","Obstáculo delante · izq.","LPLC1"], ["obstacle_R","Obstáculo delante · der.","LPLC1"],
+  ["light_L","Luz · ojo izq.","ocelos (OCG)"], ["light_R","Luz · ojo der.","ocelos (OCG)"],
+  "TACTO, VIENTO Y CALOR",
+  ["touch_L","Tacto antena · izq.","mecanorreceptores"], ["touch_R","Tacto antena · der.","mecanorreceptores"],
+  ["wind","Viento","órgano de Johnston"], ["heat","Calor","TRN"],
+  "SOCIAL",
+  ["cva","Feromona de macho (cVA)","ORN DA1 (Or67d)"], ["fly_odor","Olor a mosca","ORN VA1v / VA1d"],
+  ["song","Canto de cortejo","JO-B"], ["song_vpoEN","Canto → vpoEN (atajo)","vpoEN"],
+  ["mating_drive","Impulso sexual (estado interno)","pC1"],
+  ["egg_drive","Huevos maduros (estado interno)","SMP550"],
+  "MEMORIA",
+  ["scent","Olor individual de otras moscas","10 glomérulos por mosca"],
+  ["pain","Dolor por un golpe (estado interno)","dopamina PPL1"],
+  ["reward","Recompensa al comer (estado interno)","dopamina PAM"],
+];
+const MOT = [
+  "MOVIMIENTO",
+  ["forward","Avanzar","DNg100 / DNp09"], ["backward","Retroceder","MDN"],
+  ["turn_L","Girar a la izquierda","DNa01 / DNa02"], ["turn_R","Girar a la derecha","DNa01 / DNa02"],
+  ["escape","Escapar (fibra gigante)","DNp01"],
+  "ACCIONES",
+  ["feed","Comer (probóscide)","MN9 / MN10"], ["groom","Acicalarse","DNg84"],
+  "MOTIVACIÓN",
+  ["odor_drive","Atracción por el olor","DNg100 / DNge053"], ["avoid","Evitar (CO₂ / calor)","DNb05"],
+  ["light_seen","Detecta luz","DNp18"],
+  ["receptive","Receptiva a un macho","vpoDN (DNp37)"],
+  ["reject","Rechazar (saca el ovipositor)","DNp13"],
+  ["lay","Poner un huevo","oviDN"],
+  "MEMORIA (cuerpo pedunculado)",
+  ["mbon_approach","Salida \"acercarse\"","MBON de compartimentos PPL1"],
+  ["mbon_avoid","Salida \"evitar\"","MBON de compartimentos PAM"],
+];
+const TOOLS = [["food","🍌 COMIDA"],["bitter","☠ AMARGO"],["co2","💨 CO₂"],["heat","🔥 CALOR"],
+  ["fan","🌀 VIENTO"],["lamp","💡 LUZ"],["stone","🪨 PIEDRA"],["leaf","🍂 HOJA"],["shadow","✋ MANOTAZO"],["doll","🪰 MUÑECA"],["erase","✖ BORRAR"]];
+const NAMES = ["Lola","Pepa","Rocío","Maruja","Chelo","Nube","Toño","Paco","Chema","Rulo","Zumbi","Pancho","Bzz","Mosqui","Tito","Luna"];
+
+let tool = "food", S = null, MAP = null, tRecv = 0, pollDt = 60, prev = {};
+const $ = id => document.getElementById(id);
+const post = o => fetch("/api/cmd", {method:"POST", body:JSON.stringify(o)});
+
+// ------------------------------------------------------------------ toolbar
+function setTool(k) { tool = k; document.querySelectorAll("#tools button").forEach(x => x.classList.toggle("on", x.dataset.k === k)); }
+TOOLS.forEach(([k, label]) => {
+  const b = document.createElement("button"); b.textContent = label; b.dataset.k = k;
+  b.onclick = () => k === "doll" ? openCreator() : (cancelPlacing(), setTool(k));
+  $("tools").appendChild(b);
+});
+setTool("food");
+$("pause").onclick = () => post({cmd:"pause"});
+$("reset").onclick = () => post({cmd:"reset"});
+const SLIDER_FMT = { speed: v => (+v).toFixed(1) + "×", walk: v => Math.round(v * 100) + "%" };
+function sliderChanged(id) {
+  const el = $(id);
+  $(id + "_v").textContent = SLIDER_FMT[id](el.value);
+  post({cmd: id, value: el.value});
+}
+["speed", "walk"].forEach(id => { $(id).oninput = () => sliderChanged(id); $(id + "_v").textContent = SLIDER_FMT[id]($(id).value); });
+document.querySelectorAll("[data-step]").forEach(b => b.onclick = () => {
+  const [id, dir] = b.dataset.step.split(":"), el = $(id);
+  dir > 0 ? el.stepUp() : el.stepDown();
+  sliderChanged(id);
+});
+$("r_heat").onclick = () => post({cmd:"heat", value:!S.in_heat});
+$("r_assist").onclick = () => post({cmd:"assist", value:!S.assist});
+$("btn_daynight").onclick = () => post({cmd:"daynight", value:!S.daynight});
+$("arena_size").onchange = e => post({cmd:"arena", value:e.target.value});
+
+const A = $("arena"), ax = A.getContext("2d");
+A.onclick = e => {
+  const r = A.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width * AW, y = (e.clientY - r.top) / r.height * AH;
+  if (tool === "erase") post({cmd:"remove", x, y});
+  else if (tool === "doll") { if (pending) post({cmd:"add", kind:"doll", x, y, traits:pending}); cancelPlacing(); nextName(); }
+  else post({cmd:"add", kind:tool, x, y});
+};
+
+// ------------------------------------------------------------------ doll creator
+const form = { sex:"F", mating:false };
+const SLIDERS = ["aggression","helper","social","speed","size","song","persistence"];
+let editing = null;
+function formTraits() {
+  const t = { name: $("f_name").value.trim() || "Muñeca", sex: form.sex, mating: form.mating };
+  SLIDERS.forEach(k => t[k] = parseFloat($("f_" + k).value));
+  return t;
+}
+function setForm(t) {
+  $("f_name").value = t.name; form.sex = t.sex; form.mating = t.mating;
+  SLIDERS.forEach(k => { if (t[k] !== undefined) $("f_" + k).value = t[k]; });
+  renderForm();
+}
+function nextName() { $("f_name").value = NAMES[Math.floor(Math.random() * NAMES.length)]; renderForm(); }
+function describe(t) {
+  const who = t.sex === "M" ? "Macho (azul)" : "Hembra (rosa)", out = [];
+  if (t.mating && t.sex === "M") out.push(`en celo: cortejará a Flippy en 4 etapas (orientarse, tocarla, cantar, intentar cópula). Canto ${Math.round(t.song*100)}%: ${t.song > 0.65 ? "convence rápido" : t.song < 0.35 ? "le costará convencerla" : "canto normal"}. Insistencia ${Math.round(t.persistence*100)}%. Si hay otro macho cortejando, pelearán`);
+  else if (t.mating) out.push("en celo: desprende más olor a mosca (ORN VA1v/VA1d)");
+  if (t.aggression > 0.3) out.push(`violenta (${Math.round(t.aggression*100)}%): la embestirá; si la embestida parece una sombra que se acerca, Flippy puede escapar por su fibra gigante`);
+  if (t.helper > 0.5) out.push("ayudante: le lleva migas cuando tiene hambre y aparta a las moscas violentas");
+  if (t.social > 0.55) out.push("sociable: se acerca; Flippy la verá con LC10a/LC11 y girará hacia ella");
+  else if (t.social < 0.35) out.push("tímida: se aleja de Flippy");
+  if (!out.length) out.push("tranquila: pasea sin molestar");
+  out.push("tras cada cópula descansa una generación y muere tras la 3.ª");
+  return `${who} · ${out.join(" · ")}.`;
+}
+function renderForm() {
+  $("f_F").classList.toggle("on", form.sex === "F"); $("f_M").classList.toggle("on", form.sex === "M");
+  $("f_mating").classList.toggle("on", form.mating);
+  $("f_mating").textContent = "❤ ÉPOCA DE APAREAMIENTO: " + (form.mating ? "SÍ" : "NO");
+  SLIDERS.forEach(k => $("v_" + k).textContent = k === "size" ? parseFloat($("f_" + k).value).toFixed(2) : Math.round($("f_" + k).value * 100));
+  $("desc").textContent = describe(formTraits());
+  $("place").hidden = $("random").hidden = editing !== null;
+  $("save").hidden = editing === null;
+  $("m_title").textContent = editing === null ? "NUEVA MOSCA MUÑECA" : "EDITAR A " + formTraits().name.toUpperCase();
+}
+$("f_F").onclick = () => { form.sex = "F"; renderForm(); };
+$("f_M").onclick = () => { form.sex = "M"; renderForm(); };
+$("f_mating").onclick = () => { form.mating = !form.mating; renderForm(); };
+SLIDERS.forEach(k => $("f_" + k).oninput = renderForm);
+$("f_name").oninput = renderForm;
+// flow: MUÑECA button -> floating modal to configure -> COLOCAR -> click on the arena
+let pending = null, prevTool = "food";
+function openCreator(id = null) {
+  editing = id;
+  if (id !== null) { const d = S && S.dolls.find(x => x.id === id); if (d) setForm(d.traits); }
+  cancelPlacing();
+  renderForm();
+  $("modal").hidden = false;
+  $("f_name").focus();
+}
+function closeCreator() { $("modal").hidden = true; editing = null; renderForm(); }
+function cancelPlacing() {
+  if (tool === "doll") setTool(prevTool);
+  pending = null; $("placing").hidden = true;
+}
+$("place").onclick = () => {
+  pending = formTraits();
+  closeCreator();
+  if (tool !== "doll") prevTool = tool;
+  setTool("doll");
+  $("placing_name").textContent = pending.name;
+  $("placing").hidden = false;
+};
+$("open_creator").onclick = () => openCreator();
+$("m_close").onclick = closeCreator;
+$("placing_cancel").onclick = cancelPlacing;
+$("modal").onclick = e => { if (e.target === $("modal")) closeCreator(); };
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (!$("modal").hidden) closeCreator();
+  else if (!$("m_saves").hidden) $("m_saves").hidden = true;
+  else if (!$("m_history").hidden) $("m_history").hidden = true;
+  else if (!$("m_rel").hidden) $("m_rel").hidden = true;
+  else if (tool === "doll") cancelPlacing();
+  else if (topWin()) openWin(topWin(), false);
+});
+$("random").onclick = () => {
+  setForm({ name: NAMES[Math.floor(Math.random()*NAMES.length)], sex: Math.random() < 0.5 ? "F" : "M", mating: Math.random() < 0.5,
+    aggression: Math.random() < 0.3 ? +(Math.random()).toFixed(2) : 0, helper: Math.random() < 0.3 ? 1 : 0,
+    social: +(Math.random()).toFixed(2), speed: +(Math.random()).toFixed(2), size: +(0.8 + Math.random()*0.5).toFixed(2) });
+};
+$("save").onclick = () => { post({cmd:"doll", id:editing, traits:formTraits()}); closeCreator(); };
+$("cancel").onclick = closeCreator;
+renderForm();
+
+// ------------------------------------------------------------------ family tree (SVG)
+const treeSigs = {};
+// ancestors + descendants (up to `depth` generations each way) + partners of one fly
+function lineage(fam, id, depth = 99) {
+  const byId = Object.fromEntries(fam.map(m => [m.id, m])), keep = new Set([id]);
+  const up = (i, d) => { if (d > depth) return; [byId[i]?.mother, byId[i]?.father].forEach(p => { if (p !== null && p !== undefined && byId[p] && !keep.has(p)) { keep.add(p); up(p, d + 1); } }); };
+  const down = (i, d) => { if (d > depth) return; fam.forEach(k => { if ((k.mother === i || k.father === i) && !keep.has(k.id)) { keep.add(k.id); down(k.id, d + 1); } }); };
+  up(id, 1); down(id, 1);
+  fam.forEach(k => { if (k.mother === id && k.father !== null) keep.add(k.father); if (k.father === id && k.mother !== null) keep.add(k.mother); });
+  return keep;
+}
+function renderTree(target = "tree", fam = S.family, focus = null, depth = 99) {
+  const hasKids = new Set(fam.flatMap(m => [m.mother, m.father]).filter(v => v !== null && v !== undefined));
+  let nodes = fam.filter(m => m.real || hasKids.has(m.id) || m.mother !== null || m.father !== null);
+  if (focus !== null) { const keep = lineage(fam, focus, depth); nodes = fam.filter(m => keep.has(m.id)); }
+  const sig = JSON.stringify([focus, depth, nodes.map(m => [m.id, m.name, m.alive, m.sex])]);
+  if (sig === treeSigs[target]) return;
+  treeSigs[target] = sig;
+  if (nodes.length <= 1 && focus === null) { $(target).innerHTML = `<div class="empty" style="padding:10px">Aún no hay familia. Cuando Flippy (o una hembra muñeca) copule y ponga huevos, aquí aparecerá su descendencia generación a generación.</div>`; return; }
+  const W = 104, H = 30, GX = 14, GY = 64, pos = {};
+  const rows = {};
+  nodes.forEach(m => (rows[m.gen] ??= []).push(m));
+  const gens = Object.keys(rows).map(Number).sort((a, b) => a - b);
+  const coupleKey = m => `${m.mother}-${m.father}`;
+  let maxW = 0;
+  gens.forEach((g, gi) => {
+    const row = rows[g];
+    // children grouped by couple, couples ordered by where their parents sit
+    const parentX = m => ((pos[m.mother]?.x ?? 0) + (pos[m.father]?.x ?? 0)) / 2;
+    if (gi > 0) row.sort((a, b) => parentX(a) - parentX(b) || coupleKey(a).localeCompare(coupleKey(b)) || a.id - b.id);
+    else row.sort((a, b) => (b.real ? 1 : 0) - (a.real ? 1 : 0) || a.id - b.id);
+    row.forEach((m, i) => pos[m.id] = { x: 10 + i * (W + GX), y: 10 + gi * (H + GY) });
+    maxW = Math.max(maxW, row.length);
+  });
+  // one union per couple: parents -> ❤ -> their children, each couple in its own colour
+  const COLORS = ["#ffd23f", "#7bd389", "#c77dff", "#ff9f5a", "#5ad1e0", "#ff6b8a"];
+  const couples = {};
+  nodes.forEach(m => { if (m.mother !== null || m.father !== null) (couples[coupleKey(m)] ??= { mother: m.mother, father: m.father, kids: [] }).kids.push(m); });
+  let lines = "", boxes = "", hearts = "";
+  Object.values(couples).forEach((c, ci) => {
+    const col = COLORS[ci % COLORS.length], mp = pos[c.mother], fp = pos[c.father];
+    const par = [mp, fp].filter(Boolean); if (!par.length) return;
+    const uy = Math.max(...par.map(p => p.y)) + H + 10 + (ci % 4) * 7;        // stagger couples
+    const ux = par.reduce((s, p) => s + p.x + W / 2, 0) / par.length;
+    if (mp) lines += `<path d="M${mp.x + W / 2} ${mp.y + H} V${uy} H${ux}" fill="none" stroke="#ff8fc0" stroke-width="2"/>`;
+    if (fp) lines += `<path d="M${fp.x + W / 2} ${fp.y + H} V${uy} H${ux}" fill="none" stroke="#8cc0ff" stroke-width="2"/>`;
+    c.kids.forEach(k => {
+      const kp = pos[k.id], ky = kp.y - 8 - (ci % 4) * 5;
+      lines += `<path d="M${ux} ${uy} V${ky} H${kp.x + W / 2} V${kp.y}" fill="none" stroke="${col}" stroke-width="2"/>`;
+    });
+    hearts += `<text x="${ux}" y="${uy + 5}" text-anchor="middle" fill="${col}" font-size="15">❤</text>`;
+  });
+  nodes.forEach(m => {
+    const c = pos[m.id];
+    const me = m.id === focus;
+    const fill = me ? "#4a3f78" : m.real ? "#3a3014" : "#231f33", stroke = m.real ? "#ffd23f" : (m.sex === "M" ? "#4d9de0" : "#ff6fae");
+    const icon = m.sex === "M" ? "♂" : "♀", sub = m.real ? "cerebro real" : (m.gen ? `gen ${m.gen}` : "creada");
+    if (me) boxes += `<rect x="${c.x - 5}" y="${c.y - 5}" width="${W + 10}" height="${H + 10}" fill="none" stroke="#fff3b0" stroke-width="2" stroke-dasharray="4 3"/>`;
+    boxes += `<g data-id="${m.id}" opacity="${m.alive ? 1 : 0.45}"><rect x="${c.x}" y="${c.y}" width="${W}" height="${H}" fill="${fill}" stroke="${stroke}" stroke-width="${me ? 4 : 2}"/>
+      <text x="${c.x + 6}" y="${c.y + 13}" fill="#e8e3ff" font-size="15">${icon} ${m.name}${m.alive ? "" : " ✝"}</text>
+      <text x="${c.x + 6}" y="${c.y + 25}" fill="#8a82a8" font-size="12">${sub}</text></g>`;
+  });
+  const svgW = 20 + maxW * (W + GX), svgH = 20 + gens.length * (H + GY);
+  $(target).innerHTML = `<svg width="${svgW}" height="${svgH}" role="img" aria-label="Árbol familiar">${lines}${hearts}${boxes}</svg>`;
+}
+
+// ------------------------------------------------------------------ save / load
+const fmtDate = ts => new Date(ts * 1000).toLocaleString("es", { dateStyle: "short", timeStyle: "short" });
+const fmtSum = s => `${s.t ?? 0} s simulados · ${s.dolls ?? 0} muñecas · ${s.brood ?? 0} huevos/larvas · generación máx. ${s.gen_max ?? 0}`;
+let saveMode = "save", confirmFile = null;
+async function openSaves(mode) {
+  saveMode = mode; confirmFile = null;
+  $("s_title").textContent = mode === "save" ? "GUARDAR PARTIDA" : "CARGAR PARTIDA";
+  $("s_saverow").hidden = mode !== "save";
+  $("s_hint").textContent = mode === "save" ? "Pulsa una partida existente para sobrescribirla con el mismo nombre. Además se autoguarda cada minuto y al cerrar el servidor."
+                                           : "Cargar reemplaza la partida actual.";
+  $("m_saves").hidden = false;
+  await renderSaves();
+  if (mode === "save") $("s_name").select();
+}
+async function renderSaves() {
+  const list = await (await fetch("/api/saves")).json();
+  $("s_list").innerHTML = list.length ? list.map(f => `<div class="saverow"><div>${f.auto ? "🔄 " : "💾 "}${f.name}
+      <small>${fmtDate(f.saved_at)} · ${fmtSum(f.summary)}</small></div>
+      <div class="row">${saveMode === "save" ? `<button class="sm" data-over="${f.name}">SOBRESCRIBIR</button>` :
+        confirmFile === f.file ? `<span style="font-size:15px">¿Reemplazar la actual?</span><button class="sm" data-load="${f.file}">SÍ, CARGAR</button><button class="sm" data-cancel>NO</button>`
+                               : `<button class="sm" data-ask="${f.file}">CARGAR</button>`}</div></div>`).join("")
+    : `<div class="empty">No hay partidas guardadas todavía.</div>`;
+}
+$("s_list").onclick = async e => {
+  const b = e.target.dataset;
+  if (b.over) { $("s_name").value = b.over; $("s_do_save").click(); }
+  if (b.ask) { confirmFile = b.ask; renderSaves(); }
+  if ("cancel" in b) { confirmFile = null; renderSaves(); }
+  if (b.load) {
+    const res = await (await post({cmd:"load", file:b.load})).json();
+    if (!res.ok) { confirmFile = null; $("s_hint").textContent = "✖ No se pudo cargar: " + res.error; renderSaves(); return; }
+    $("m_saves").hidden = true; treeSigs.tree = treeSigs.tree_big = null;
+  }
+};
+$("s_do_save").onclick = async () => {
+  await post({cmd:"save", name:$("s_name").value.trim() || "Partida"});
+  $("s_hint").textContent = "✔ Guardada."; renderSaves();
+};
+$("btn_save").onclick = () => openSaves("save");
+// save & switch off: confirmation inside the page (no browser dialogs)
+function offButton() {
+  $("off_box").innerHTML = `<button id="btn_off" title="Guarda la partida y cierra el programa FLIPPY (el servidor). Al volver a abrirlo te ofrecerá continuar.">⏻ GUARDAR Y APAGAR</button>`;
+  $("btn_off").onclick = () => {
+    $("off_box").innerHTML = `<span style="font-size:16px">¿Guardar y apagar FLIPPY?</span> <button id="off_yes">SÍ, APAGAR</button> <button id="off_no">NO</button>`;
+    $("off_no").onclick = offButton;
+    $("off_yes").onclick = async () => {
+      $("off_box").innerHTML = `<span style="font-size:16px">guardando…</span>`;
+      try { await post({cmd:"shutdown"}); } catch (e) {}
+      shuttingDown = true;
+      $("off_box").innerHTML = `<span style="font-size:16px;color:var(--good)">✔ apagado</span>`;
+      $("off_done").hidden = false;
+      window.scrollTo(0, 0);
+    };
+  };
+}
+let shuttingDown = false;
+offButton();
+$("btn_load").onclick = () => openSaves("load");
+document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => $(b.dataset.close).hidden = true);
+["m_saves", "m_history", "m_rel"].forEach(id => $(id).onclick = e => { if (e.target === $(id)) $(id).hidden = true; });
+
+// offer to continue the autosave when the page opens on a fresh world
+(async () => {
+  const [list, st] = await Promise.all([(await fetch("/api/saves")).json(), (await fetch("/api/state")).json()]);
+  const auto = list.find(f => f.auto);
+  if (auto && st.t < 15 && !st.dolls.length && (auto.summary.t ?? 0) > 5) {
+    $("resume_info").textContent = `${fmtDate(auto.saved_at)} · ${fmtSum(auto.summary)}`;
+    $("resume").hidden = false;
+    $("resume_yes").onclick = async () => { await post({cmd:"load", file:auto.file}); $("resume").hidden = true; };
+    $("resume_no").onclick = () => $("resume").hidden = true;
+  }
+})();
+
+// ------------------------------------------------------------------ history modal
+const KIND = { birth:["🐣","Nacimientos"], mating:["❤","Cópulas"], egg:["🥚","Huevos"], death:["✝","Muertes"], season:["🌸","Época"], experiment:["🧪","Experimentos"] };
+let histFilter = "all", histTimer = null, histWho = null, histFam = [], whoSig = "";
+$("h_filters").innerHTML = [["all","Todo"], ...Object.entries(KIND).map(([k, v]) => [k, v[0] + " " + v[1]])]
+  .map(([k, l]) => `<button class="sm" data-f="${k}">${l}</button>`).join("");
+$("h_filters").onclick = e => { if (e.target.dataset.f) { histFilter = e.target.dataset.f; loadHistory(true); } };
+// a repeated name is told apart by its generation: "Sol (gen 1)" / "Sol (gen 2)"
+function nameOf(fam, id) {
+  const m = fam.find(x => x.id === id); if (!m) return "?";
+  return fam.some(o => o.name === m.name && o.id !== id) ? `${m.name} (gen ${m.gen})` : m.name;
+}
+const flyLabel = m => `${m.sex === "M" ? "♂" : "♀"} ${m.name}${m.real ? " (Flippy, cerebro real)" : m.gen ? " · gen " + m.gen : " · creada"}${m.alive ? "" : " ✝"}`;
+function selectWho(id) {
+  histWho = id === "" || id === null || id === undefined ? null : Number(id);
+  treeSigs.tree_big = null;
+  loadHistory(true);
+}
+$("h_who").onchange = e => selectWho(e.target.value);
+$("h_all").onclick = () => selectWho(null);
+$("h_depth").onchange = () => { treeSigs.tree_big = null; loadHistory(false); };
+$("tree_big").onclick = e => { const g = e.target.closest("g[data-id]"); if (g) selectWho(g.dataset.id); };
+$("h_card").onclick = e => { if (e.target.dataset.sel !== undefined) selectWho(e.target.dataset.sel); };
+function whoCard(fam, chron, id) {
+  const byId = Object.fromEntries(fam.map(m => [m.id, m])), m = byId[id];
+  if (!m) return "";
+  const link = i => byId[i] ? `<a data-sel="${i}">${nameOf(fam, i)}</a>` : "?";
+  const kids = fam.filter(k => k.mother === id || k.father === id);
+  const grand = fam.filter(g => kids.some(k => g.mother === k.id || g.father === k.id));
+  const mates = [...new Set(kids.map(k => k.mother === id ? k.father : k.mother).filter(v => v !== null && v !== undefined))];
+  // saves from before per-fly ids: fall back to finding her name in the event text
+  const hers = e => e.ids ? e.ids.includes(id) : e.text.includes(m.name);
+  const eggs = chron.filter(e => e.kind === "egg" && (e.ids ? e.ids[0] === id : e.text.startsWith(m.name + " pone"))).length;
+  const matings = m.matings ?? chron.filter(e => e.kind === "mating" && hers(e)).length;
+  const death = chron.find(e => e.kind === "death" && (e.ids ? e.ids[0] === id : e.text.startsWith(m.name + " muere")));
+  const birth = chron.find(e => e.kind === "birth" && (e.ids ? e.ids[0] === id : e.text.startsWith("Nace " + m.name + " ")));
+  m.born ??= birth ? birth.t : null;
+  const cause = m.cause ?? (death ? death.text.slice(m.name.length + 1) : null);
+  const life = m.alive ? "viva" : `murió a los ${m.died ?? (death ? death.t : "?")} s${cause ? " — " + cause : ""}`;
+  return `<div class="kv">
+    <span>mosca</span><b>${flyLabel(m)}</b>
+    <span>estado</span><span>${m.real ? "viva (cerebro real)" : life}${m.born ? ` · nació a los ${m.born} s` : ""}</span>
+    <span>padres</span><span>${m.mother === null && m.father === null ? (m.real ? "— (conectoma FlyWire)" : "— (creada por ti)") : `${link(m.mother)} y ${link(m.father)}`}</span>
+    <span>parejas</span><span>${mates.length ? mates.map(link).join(", ") : "—"} · ${matings} cópula${matings === 1 ? "" : "s"}</span>
+    <span>descendencia</span><span>${eggs ? eggs + " huevos · " : ""}${kids.length} hij${kids.length === 1 ? "o" : "os"}${kids.length ? ": " + kids.map(k => link(k.id)).join(", ") : ""}${grand.length ? ` · ${grand.length} niet${grand.length === 1 ? "o" : "os"}` : ""}</span>
+  </div>`;
+}
+async function loadHistory(scroll) {
+  const h = await (await fetch("/api/history")).json();
+  histFam = h.family;
+  // fly selector (rebuilt only when the family changes, so an open dropdown isn't reset)
+  const sig = JSON.stringify(h.family.map(m => [m.id, m.name, m.alive]));
+  if (sig !== whoSig) {
+    whoSig = sig;
+    const sorted = [...h.family].sort((a, b) => (b.real ? 1 : 0) - (a.real ? 1 : 0) || a.gen - b.gen || a.name.localeCompare(b.name));
+    $("h_who").innerHTML = `<option value="">— todas las moscas —</option>` + sorted.map(m => `<option value="${m.id}">${flyLabel(m)}</option>`).join("");
+  }
+  $("h_who").value = histWho === null ? "" : String(histWho);
+  renderTree("tree_big", h.family, histWho, Number($("h_depth").value));
+  const who = histWho === null ? null : h.family.find(m => m.id === histWho);
+  $("h_tree_title").textContent = who ? `LINAJE DE ${nameOf(h.family, who.id).toUpperCase()} (antepasados, parejas y descendientes)` : "ÁRBOL DE GENERACIONES";
+  $("h_card").hidden = !who;
+  if (who) $("h_card").innerHTML = whoCard(h.family, h.chronicle, histWho);
+  document.querySelectorAll("#h_filters button").forEach(b => b.classList.toggle("on", b.dataset.f === histFilter));
+  // events of this fly: exact ids when recorded, the name for older saves without ids
+  const mine = e => !who || (e.ids ? e.ids.includes(histWho) : e.text.includes(who.name));
+  const pool = h.chronicle.filter(mine);
+  const c = { birth:0, mating:0, egg:0, death:0 }; pool.forEach(e => c[e.kind] !== undefined && c[e.kind]++);
+  const gcount = new Set(h.family.map(m => m.gen)).size;
+  $("h_stats").textContent = who
+    ? `Eventos de ${who.name}: ${c.birth} nacimientos · ${c.mating} cópulas · ${c.egg} huevos · ${c.death} muertes`
+    : `${c.birth} nacimientos · ${c.mating} cópulas · ${c.egg} huevos · ${c.death} muertes · ${gcount} generacion${gcount === 1 ? "" : "es"} · ${h.family.filter(m => m.alive).length} vivos de ${h.family.length}`;
+  const tl = $("timeline"), atBottom = tl.scrollHeight - tl.scrollTop - tl.clientHeight < 30;
+  const items = pool.filter(e => histFilter === "all" || e.kind === histFilter);
+  tl.innerHTML = items.length ? items.map(e => `<div><span class="tt">${e.t.toFixed(1)} s</span><span class="gg">${e.gen === null || e.gen === undefined ? "" : "gen " + e.gen}</span><span>${(KIND[e.kind] || ["•"])[0]} ${e.text}</span></div>`).join("")
+    : `<div class="empty">${who ? `Todavía no hay eventos de este tipo para ${who.name}.` : "Todavía no ha pasado nada de este tipo."}</div>`;
+  if (scroll || atBottom) tl.scrollTop = tl.scrollHeight;       // chronological: newest at the bottom
+}
+$("btn_history").onclick = () => {
+  $("m_history").hidden = false; treeSigs.tree_big = null; loadHistory(true);
+  clearInterval(histTimer);
+  histTimer = setInterval(() => { if ($("m_history").hidden) clearInterval(histTimer); else loadHistory(false); }, 2000);
+};
+
+// ------------------------------------------------------------------ relations graph
+function renderRelations() {
+  if ($("m_rel").hidden || !S) return;
+  const n = S.dolls.length, W = 900, H = 560, cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 60;
+  if (!n) { $("rel_graph").innerHTML = `<div class="empty" style="padding:10px">No hay muñecas en la arena.</div>`; return; }
+  const pos = { 0: { x: cx, y: cy } };
+  S.dolls.forEach((d, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; pos[d.id] = { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) }; });
+  let edges = "";
+  const done = new Set();
+  S.dolls.forEach(a => Object.entries(a.affinity || {}).forEach(([k, v1]) => {
+    const b = S.dolls.find(z => z.id == k); if (!b) return;
+    const key = [a.id, b.id].sort().join("-"); if (done.has(key)) return; done.add(key);
+    const v = (v1 + ((b.affinity || {})[a.id] || 0)) / 2; if (Math.abs(v) < 15) return;
+    edges += `<line x1="${pos[a.id].x}" y1="${pos[a.id].y}" x2="${pos[b.id].x}" y2="${pos[b.id].y}" stroke="${v > 0 ? "#7bd389" : "#ff5e5b"}" stroke-opacity="0.75" stroke-width="${1 + Math.abs(v) / 20}"/>`;
+  }));
+  S.dolls.forEach(d => {
+    const o = S.opinions[d.id]; if (o === null || o === undefined) return;
+    const p = pos[d.id], mx = (cx + p.x) / 2, my = (cy + p.y) / 2;
+    edges += `<line x1="${cx}" y1="${cy}" x2="${p.x}" y2="${p.y}" stroke="${o <= -0.3 ? "#ff5e5b" : o >= 0.3 ? "#7bd389" : "#ffd23f"}" stroke-dasharray="6 4" stroke-width="${1.5 + Math.abs(o) * 5}"/>
+      <text x="${mx}" y="${my - 4}" text-anchor="middle" fill="#ffd23f" font-size="16" font-family="VT323">${face(o)} ${fmtOp(o)}</text>`;
+  });
+  let nodes = `<circle cx="${cx}" cy="${cy}" r="30" fill="#3a3014" stroke="#ffd23f" stroke-width="3"/>
+    <text x="${cx}" y="${cy + 5}" text-anchor="middle" fill="#ffd23f" font-size="18" font-family="VT323">FLIPPY</text>`;
+  S.dolls.forEach(d => {
+    const p = pos[d.id], col = d.traits.sex === "M" ? "#4d9de0" : "#ff6fae";
+    nodes += `<circle cx="${p.x}" cy="${p.y}" r="22" fill="#231f33" stroke="${col}" stroke-width="3"/>
+      <text x="${p.x}" y="${p.y + 5}" text-anchor="middle" fill="#e8e3ff" font-size="16" font-family="VT323">${d.traits.name}</text>
+      <text x="${p.x}" y="${p.y + 38}" text-anchor="middle" fill="#8a82a8" font-size="14" font-family="VT323">${d.gen ? "gen " + d.gen : ""}</text>`;
+  });
+  $("rel_graph").innerHTML = `<svg width="${W}" height="${H}" role="img" aria-label="Grafo de relaciones">${edges}${nodes}</svg>`;
+}
+$("btn_rel").onclick = () => { $("m_rel").hidden = false; renderRelations(); };
+
+let dollSig = "";
+function renderDolls() {
+  const sig = JSON.stringify(S.dolls.map(d => [d.id, d.traits, d.mated, d.young, d.old, Math.ceil(d.rest), d.matings,
+    d.affinity, S.opinions[d.id] === null || S.opinions[d.id] === undefined ? null : Math.round(S.opinions[d.id] * 10)]));
+  if (sig !== dollSig) {
+    dollSig = sig;
+    $("dolls").innerHTML = S.dolls.length ? S.dolls.map(d => {
+      const t = d.traits, tags = [];
+      if (t.mating) tags.push("❤ en celo"); if (t.aggression > 0.3) tags.push("⚔ violenta " + Math.round(t.aggression*100) + "%");
+      if (t.helper > 0.5) tags.push("✚ ayudante"); tags.push(t.social > 0.55 ? "sociable" : t.social < 0.35 ? "tímida" : "normal");
+      if (d.gen > 0) { const fam = Object.fromEntries(S.family.map(m => [m.id, m.name]));
+        tags.unshift(`gen ${d.gen} · hij${t.sex === "M" ? "o" : "a"} de ${fam[d.mother] ?? "?"} y ${fam[d.father] ?? "?"}`); }
+      if (d.young) tags.unshift("🐣 joven"); if (d.old) tags.unshift("👴 mayor"); if (d.mated) tags.push("🥚 fecundada");
+      if (d.rest > 0) tags.push(`💤 descansa ${Math.ceil(d.rest)} s`); if (d.matings) tags.push(`❤ ${d.matings}/3 cópulas`);
+      const o = S.opinions[d.id];
+      tags.push(o === null || o === undefined ? "Flippy aún no la conoce" : `Flippy ${face(o)} ${o <= -0.3 ? "la recuerda mal" : o >= 0.3 ? "la recuerda bien" : "le es indiferente"} (${fmtOp(o)})`);
+      const names = Object.fromEntries(S.dolls.map(z => [z.id, z.traits.name]));
+      const aff = Object.entries(d.affinity || {}).filter(([k]) => names[k]);
+      const best = aff.filter(([, v]) => v >= 40).sort((a, b) => b[1] - a[1])[0], worst = aff.filter(([, v]) => v <= -40).sort((a, b) => a[1] - b[1])[0];
+      if (best) tags.push(`💚 ${names[best[0]]}`); if (worst) tags.push(`💢 ${names[worst[0]]}`);
+      return `<div class="doll"><div class="dot" style="background:${t.sex === "M" ? "var(--blue)" : "var(--pink)"}"></div>
+        <div>${nameOf(S.family, d.id)} ${t.sex === "M" ? "♂" : "♀"} · <span id="ds${d.id}"></span><small>${tags.join(" · ")}</small></div>
+        <div class="row"><button class="sm" data-edit="${d.id}">EDITAR</button><button class="sm" data-del="${d.id}">✖</button></div></div>`;
+    }).join("") : `<div class="empty">Aún no hay muñecas. Pulsa 🪰 MUÑECA o CREAR MUÑECA para configurar una y luego colócala en la arena.</div>`;
+  }
+  S.dolls.forEach(d => { const el = $("ds" + d.id);
+    if (el) el.textContent = d.state === "court" ? "cortejo: " + COURT_ES[d.court_stage] : (DOLL_STATE_ES[d.state] || d.state); });
+}
+$("dolls").onclick = e => {
+  const ed = e.target.dataset.edit, del = e.target.dataset.del;
+  if (ed) openCreator(+ed);
+  if (del) post({cmd:"doll_remove", id:+del});
+};
+
+// ------------------------------------------------------------------ floating windows
+const WINS = ["w_fly", "w_exp", "w_mem", "w_eye", "w_brain", "w_sens", "w_mot"];
+let winZ = 20, winState = {};
+try { winState = JSON.parse(localStorage.getItem("flippy_windows") || "{}"); } catch (e) { winState = {}; }
+function saveWins() { try { localStorage.setItem("flippy_windows", JSON.stringify(winState)); } catch (e) {} }
+function placeWin(el, x, y) {
+  const r = el.getBoundingClientRect();
+  x = Math.min(Math.max(0, x), window.innerWidth - Math.min(r.width, 120));
+  y = Math.min(Math.max(0, y), Math.max(0, window.innerHeight - r.height - 8));   // never off the bottom
+  el.style.left = x + "px"; el.style.top = y + "px";
+  return [x, y];
+}
+function openWin(id, open = true) {
+  const el = $(id);
+  el.hidden = !open;
+  document.querySelectorAll(`[data-win="${id}"]`).forEach(b => b.classList.toggle("on", open));
+  winState[id] = { ...(winState[id] || {}), open };
+  if (open) {
+    el.style.zIndex = ++winZ;
+    // first time: open beside its dock button; afterwards wherever you left it
+    const st = winState[id], b = document.querySelector(`[data-win="${id}"]`).getBoundingClientRect();
+    let [x, y] = placeWin(el, st.x ?? b.left - el.offsetWidth - 14, st.y ?? b.top - 20);
+    if (st.x === undefined) {                      // don't open exactly on top of another window
+      for (let k = 0; k < 6 && WINS.some(o => o !== id && !$(o).hidden &&
+             Math.abs($(o).getBoundingClientRect().left - x) < 24 && Math.abs($(o).getBoundingClientRect().top - y) < 24); k++)
+        [x, y] = placeWin(el, x - 36, y - 36);
+    }
+    st.x = x; st.y = y;
+  }
+  saveWins();
+}
+WINS.forEach(id => {
+  const el = $(id), head = el.querySelector(".float-head");
+  el.addEventListener("pointerdown", () => el.style.zIndex = ++winZ);
+  el.querySelector("[data-fclose]").onclick = () => openWin(id, false);
+  head.addEventListener("pointerdown", e => {
+    if (e.target.closest("button")) return;
+    const r = el.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top;
+    head.setPointerCapture(e.pointerId);
+    const move = ev => { const [x, y] = placeWin(el, ev.clientX - dx, ev.clientY - dy); winState[id] = { ...winState[id], x, y }; };
+    const up = () => { head.removeEventListener("pointermove", move); head.removeEventListener("pointerup", up); saveWins(); };
+    head.addEventListener("pointermove", move); head.addEventListener("pointerup", up);
+  });
+  if (winState[id]?.open) openWin(id, true);
+});
+document.querySelectorAll("[data-win]").forEach(b => b.onclick = () => openWin(b.dataset.win, $(b.dataset.win).hidden));
+window.addEventListener("resize", () => WINS.forEach(id => { if (!$(id).hidden) { const r = $(id).getBoundingClientRect(); placeWin($(id), r.left, r.top); } }));
+function topWin() {
+  return WINS.filter(id => !$(id).hidden).sort((a, b) => (+$(b).style.zIndex || 0) - (+$(a).style.zIndex || 0))[0];
+}
+
+// ------------------------------------------------------------------ pixel helpers
+function px(c, x, y, col) { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), 1, 1); }
+function disc(c, cx, cy, r, col) { for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (x*x + y*y <= r*r) px(c, cx+x, cy+y, col); }
+function bitmap(c, rows, x, y, col) { rows.forEach((r, j) => [...r].forEach((ch, i) => { if (ch === "X") px(c, x + i, y + j, col); })); }
+const ICON = {
+  heart: [".X.X.","XXXXX","XXXXX",".XXX.","..X.."],
+  sword: ["X...X",".X.X.","..X..",".X.X.","X...X"],
+  plus:  ["..X..","..X..","XXXXX","..X..","..X.."],
+  note:  ["..XX.","..X.X","..X..","XXX..","XX..."],
+};
+// arena size (px): follows the server (S 320x200 · M 480x300 · L 640x400)
+let AW = 480, AH = 300;
+const floor = document.createElement("canvas");
+function buildFloor() {
+  floor.width = AW; floor.height = AH;
+  const c = floor.getContext("2d");
+  for (let y = 0; y < AH; y++) for (let x = 0; x < AW; x++) {
+    const t = ((x>>4) + (y>>4)) & 1, n = (Math.sin(x*12.9898 + y*78.233)*43758.5453) % 1;
+    const v = (t ? 62 : 56) + (n > 0.85 ? 6 : 0);
+    c.fillStyle = `rgb(${v+14},${v+6},${v-8})`; c.fillRect(x, y, 1, 1);
+  }
+  c.fillStyle = "#2a2233"; c.fillRect(0,0,AW,2); c.fillRect(0,AH-2,AW,2); c.fillRect(0,0,2,AH); c.fillRect(AW-2,0,2,AH);
+}
+function setArena(w, h) {
+  if (w === AW && h === AH) return;
+  AW = w; AH = h; A.width = AW; A.height = AH; buildFloor();
+  document.querySelectorAll("#arena_size option").forEach(o => o.selected = o.value === ({320:"S",480:"M",640:"L"})[w]);
+}
+buildFloor();
+
+// ------------------------------------------------------------------ fly sprites
+const PAL = {
+  real: { head:"#3b2f2f", thorax:"#5a4636", abdA:"#2b2320", abdB:"#6b5a3a", legs:"#1c1614", tip:null },
+  F:    { head:"#9c2a5e", thorax:"#ff6fae", abdA:"#d94886", abdB:"#ffb3d4", legs:"#6d1f45", tip:null },
+  M:    { head:"#1d3f7a", thorax:"#4d9de0", abdA:"#2a5aa0", abdB:"#8cc0ff", legs:"#16284a", tip:"#0d1b3a" },
+};
+function flyShape(u, v, st, pal) {
+  if ((u-4)**2 + v*v*1.2 <= 4.5) return (Math.abs(v) >= 1.2 && u > 3.5) ? "#d7263d" : pal.head;   // head + red eyes
+  if (st.proboscis > 0.3 && u > 5.5 && u < 5.5 + 3*st.proboscis && Math.abs(v) < 0.6) return "#e0a458";
+  if ((u-1)**2/5 + v*v/3.2 <= 1) return pal.thorax;
+  if (st.ovi > 0.3 && u < -6.2 && u > -6.2 - 2.5 * st.ovi && Math.abs(v) < 0.6) return "#e0a458";  // ovipositor out: "no"
+  if ((u+3.2)**2/7 + v*v/3.5 <= 1) {
+    if (pal.tip && u < -5) return pal.tip;                           // male: dark rounded abdomen tip
+    return (Math.round(u) % 2 === 0) ? pal.abdA : pal.abdB;
+  }
+  for (const s of [-1, 1]) {                                         // wings, hinged at the thorax
+    const a = s * (s < 0 ? st.spreadL : st.spreadR);
+    const wu = u*Math.cos(a) + v*Math.sin(a), wv = -u*Math.sin(a) + v*Math.cos(a);
+    if ((wu + 3.5)**2/12 + (wv - s*1.2)**2/2 <= 1 && wu < 0.5) return "rgba(190,220,255,0.55)";
+  }
+  for (const lu of [2.5, 0.8, -0.8])
+    if (Math.abs(u - lu - (Math.abs(v)-2)*0.4*(lu>1?1:-1)) < 0.5 && Math.abs(v) > 1.6 && Math.abs(v) < 4) return pal.legs;
+  return null;
+}
+function drawFlySprite(c, p, st, pal, size) {
+  const K = 0.62 / size, R = Math.ceil(13 * size), ch = Math.cos(p.heading), sh = Math.sin(p.heading);
+  const cx = p.x, cy = p.y - (p.z || 0);
+  if ((p.z || 0) > 0.5) disc(c, Math.round(p.x), Math.round(p.y) + 1, 3, "rgba(0,0,0,0.3)");
+  for (let y = -R; y <= R; y++) for (let x = -R; x <= R; x++) {
+    const u = (x*ch + y*sh) * K, v = (-x*sh + y*ch) * K;
+    const col = flyShape(u, v, st, pal);
+    if (col) px(c, cx + x, cy + y, col);
+  }
+}
+function wingSpread(state, t) {
+  if (state === "groom") return 0.2;
+  if (state === "fly" || state === "flyaway") return 0.55 + 0.5 * Math.sin(t * 40);
+  return 0.55;
+}
+function drawRealFly(c, f, t) {
+  const w = wingSpread(f.state, t);
+  drawFlySprite(c, f, { proboscis: f.proboscis, spreadL: w, spreadR: w, ovi: f.ovi || 0 }, PAL.real, 1);
+  if (f.state === "mate") bitmap(c, ICON.heart, Math.round(f.x) - 2, Math.round(f.y) - 14 - Math.round(Math.abs(Math.sin(t*3))*3), "#ff4f8b");
+}
+function drawDoll(c, d, t) {
+  const tr = d.traits, pal = PAL[tr.sex] || PAL.F;
+  let wl = wingSpread(d.state, t), wr = wl;
+  if (d.state === "fight") wl = wr = 1.2 + 0.15 * Math.sin(t * 30);   // wing threat
+  if (d.singing && S) {                                              // extend the wing facing Flippy
+    const side = Math.sin(Math.atan2(S.fly.y - d.y, S.fly.x - d.x) - d.heading);
+    const vib = 1.45 + 0.08 * Math.sin(t * 60);
+    if (side < 0) wl = vib; else wr = vib;
+  }
+  // pheromone sparkles: blue (cVA) from males, pink from females; more in mating season
+  const n = tr.mating ? 8 : 3, col = tr.sex === "M" ? "rgba(120,180,255,0.55)" : "rgba(255,140,200,0.55)";
+  for (let i = 0; i < n; i++) { const a = i * 2.4 + t * 0.8 + d.id, r = 5 + ((i * 5 + t * 10) % 16); px(c, d.x + Math.cos(a) * r, d.y + Math.sin(a) * r, col); }
+  drawFlySprite(c, d, { proboscis: 0, spreadL: wl, spreadR: wr }, pal, tr.size * (d.young ? 0.7 : 1));
+  if (d.carrying) disc(c, Math.round(d.x + Math.cos(d.heading) * 7), Math.round(d.y + Math.sin(d.heading) * 7), 1, "#f4d35e");
+  // trait icons above the head
+  const icons = [];
+  if (tr.mating) icons.push(["heart", "#ff4f8b"]);
+  if (tr.aggression > 0.3) icons.push(["sword", "#ff5e5b"]);
+  if (tr.helper > 0.5) icons.push(["plus", "#7bd389"]);
+  const top = Math.round(d.y - 12 * tr.size - 6), left = Math.round(d.x - icons.length * 3);
+  icons.forEach(([k, c2], i) => bitmap(c, ICON[k], left + i * 6, top, c2));
+  if (d.singing) bitmap(c, ICON.note, Math.round(d.x + 8 + Math.sin(t * 5) * 2), Math.round(d.y - 10 - (t * 12 % 6)), "#fff3b0");
+  if (d.state === "copulate") bitmap(c, ICON.heart, Math.round(d.x) - 2, Math.round(d.y) - 16, "#ff4f8b");
+  if (d.state === "fight") { px(c, d.x + 3 * Math.sin(t * 25), d.y - 9, "#ff5e5b"); px(c, d.x - 2, d.y - 10 + Math.sin(t * 20), "#ffd23f"); }
+  if (d.state === "court") {                                         // courtship progress: 4 pips
+    const y0 = Math.round(d.y + 9 * tr.size + 3), x0 = Math.round(d.x) - 7;
+    for (let i = 0; i < 4; i++) {
+      const fill = Math.min(1, Math.max(0, d.court_p - i));
+      c.fillStyle = "#2d2742"; c.fillRect(x0 + i * 4, y0, 3, 2);
+      c.fillStyle = i === 3 ? "#ff4f8b" : "#ffd23f"; c.fillRect(x0 + i * 4, y0, Math.round(3 * fill), 2);
+    }
+  }
+}
+
+// ------------------------------------------------------------------ world objects
+function drawThing(c, o, t) {
+  const x = Math.round(o.x), y = Math.round(o.y);
+  if (o.kind === "food") {
+    const r = Math.max(2, Math.round(o.r * Math.min(1, o.amount/100 + 0.3)));
+    const k = Math.min(1, o.amount / 50);
+    for (let i = 0; i < 26; i++) {                                   // odour plume: drifts out to ~2 sigma
+      const life = ((t * 0.35 + i * 0.137) % 1), a = i * 2.39 + Math.sin(t * 0.5 + i) * 0.3, d = 6 + life * 85;
+      px(c, x + Math.cos(a) * d, y + Math.sin(a) * d, `rgba(255,230,120,${(0.55 * (1 - life) * k).toFixed(2)})`);
+    }
+    disc(c, x, y, r, "#f4d35e"); disc(c, x-1, y-1, Math.max(1, r-3), "#fff1a8"); px(c, x+r-1, y-r+1, "#6b4f1d");
+  } else if (o.kind === "bitter") {
+    disc(c, x, y, o.r, "#7b2cbf"); disc(c, x-1, y-1, o.r-3, "#a663cc");
+    px(c,x-1,y-1,"#fff"); px(c,x+1,y-1,"#fff"); px(c,x,y+1,"#fff");
+  } else if (o.kind === "co2") {
+    for (let i = 0; i < 24; i++) {
+      const life = ((t * 0.4 + i * 0.173) % 1), a = i * 2.39, d = 4 + life * 55;
+      px(c, x + Math.cos(a)*d, y + Math.sin(a)*d, `rgba(200,200,215,${(0.5*(1-life)).toFixed(2)})`);
+    }
+    disc(c, x, y, 4, "#8d99ae"); disc(c, x, y, 2, "#edf2f4");
+  } else if (o.kind === "heat") {
+    for (let r = o.r; r > 0; r -= 3) {
+      const k = 1 - r/o.r, fl = (Math.sin(t*6 + r) > 0.6) ? 20 : 0;
+      c.strokeStyle = `rgba(${230+fl},${80+k*120},40,${0.12+k*0.25})`;
+      c.beginPath(); c.arc(x+.5, y+.5, r, 0, 7); c.stroke();
+    }
+  } else if (o.kind === "stone") {                                  // grey boulder with a highlight
+    disc(c, x, y + 1, o.r, "#3c3548"); disc(c, x, y, o.r, "#6b6478"); disc(c, x - 2, y - 2, Math.max(1, o.r - 4), "#8d86a0");
+    px(c, x - 4, y - 4, "#b9b2cc"); px(c, x + 3, y + 2, "#4f4860"); px(c, x - 1, y + 4, "#4f4860");
+  } else if (o.kind === "lamp") {                                   // bulb + flickering halo
+    const g = c.createRadialGradient(x + .5, y + .5, 1, x + .5, y + .5, 70);
+    g.addColorStop(0, `rgba(255,240,170,${0.30 + 0.03 * Math.sin(t * 9)})`); g.addColorStop(1, "rgba(255,240,170,0)");
+    c.fillStyle = g; c.fillRect(x - 70, y - 70, 140, 140);
+    disc(c, x, y, 4, "#fff6c8"); disc(c, x, y, 2, "#ffffff"); px(c, x - 1, y + 5, "#8a82a8"); px(c, x, y + 5, "#8a82a8"); px(c, x + 1, y + 5, "#8a82a8");
+  } else if (o.kind === "fan") {
+    disc(c, x, y, 5, "#4ea8de");
+    for (let k = 0; k < 4; k++) { const a = t*12 + k*1.57; for (let d = 1; d < 5; d++) px(c, x+Math.cos(a)*d, y+Math.sin(a)*d, "#caf0f8"); }
+    for (let i = 0; i < 16; i++) { const d = (i*9 + t*60) % 110 + 8, a = i*0.39; px(c, x+Math.cos(a)*d, y+Math.sin(a)*d, "rgba(200,240,255,0.4)"); }
+  }
+}
+function drawBrood(c, b, t) {
+  const x = Math.round(b.x), y = Math.round(b.y);
+  if (b.stage === "egg") {                                   // white oval with a dorsal appendage
+    px(c, x, y - 1, "#f4f1e8"); px(c, x, y, "#f4f1e8"); px(c, x + 1, y, "#dcd6c8"); px(c, x, y + 1, "#dcd6c8"); px(c, x - 1, y - 2, "#bfb8a8");
+  } else if (b.stage === "larva") {                          // cream maggot, wiggling as it crawls
+    const h = b.heading || 0, n = 2 + Math.min(3, Math.floor(b.grow / 6));
+    for (let i = 0; i < n + 2; i++) {
+      const w = Math.sin(t * 8 - i * 1.2) * 0.6;
+      px(c, x - Math.cos(h) * i + Math.cos(h + 1.57) * w, y - Math.sin(h) * i + Math.sin(h + 1.57) * w, i === 0 ? "#3b2f2f" : (i % 2 ? "#f2e6c9" : "#e4d3ad"));
+    }
+  } else {                                                   // pupa: brown barrel
+    for (let i = -2; i <= 2; i++) { px(c, x + i, y, "#8a5a2b"); if (Math.abs(i) < 2) { px(c, x + i, y - 1, "#a86f38"); px(c, x + i, y + 1, "#6e4520"); } }
+  }
+}
+function drawLeaf(c, o, t) {                                     // big leaf, semi-transparent: flies under it show through
+  const x = o.x, y = o.y, r = o.r, a = 0.6 + 0.05 * Math.sin(t * 0.7 + o.id);
+  c.save(); c.globalAlpha = 0.62;
+  for (let j = -r; j <= r; j++) for (let i = -r; i <= r; i++) {
+    const u = (i * Math.cos(a) + j * Math.sin(a)) / r, v = (-i * Math.sin(a) + j * Math.cos(a)) / (r * 0.55);
+    if (u * u + v * v > 1) continue;
+    const vein = Math.abs(v) < 0.08 || (Math.abs(Math.abs(v) - Math.abs(u - 0.2) * 0.6) < 0.05 && u > -0.6);
+    px(c, x + i, y + j, vein ? "#b5c96a" : (u + v > 0.3 ? "#4f7a2f" : "#63923a"));
+  }
+  c.restore();
+  const tx = x - Math.cos(a) * r, ty = y - Math.sin(a) * r;          // stem
+  for (let k = 0; k < 4; k++) px(c, tx - Math.cos(a) * k, ty - Math.sin(a) * k, "#6b4f1d");
+}
+function drawNight(c) {
+  const dark = 1 - (S.daylight ?? 1);
+  if (dark < 0.02) return;
+  c.save();
+  c.fillStyle = `rgba(8,12,40,${(0.62 * dark / 0.8).toFixed(3)})`; c.fillRect(0, 0, AW, AH);
+  c.globalCompositeOperation = "lighter";                         // lamps light up the night
+  S.things.filter(o => o.kind === "lamp").forEach(o => {
+    const g = c.createRadialGradient(o.x, o.y, 2, o.x, o.y, 75);
+    g.addColorStop(0, `rgba(255,220,140,${(0.45 * dark).toFixed(3)})`); g.addColorStop(1, "rgba(255,220,140,0)");
+    c.fillStyle = g; c.fillRect(o.x - 75, o.y - 75, 150, 150);
+  });
+  c.restore();
+}
+const ZZ = ["XXX", "..X", ".X.", "X..", "XXX"];
+function drawZzz(c, p, t) {
+  const k = (t * 0.8 + (p.id || 0) * 0.37) % 1;
+  bitmap(c, ZZ, Math.round(p.x + 4 + k * 4), Math.round(p.y - 10 - k * 8), `rgba(200,210,255,${(1 - k).toFixed(2)})`);
+}
+function drawShadow(c, s) {
+  const r = Math.round(s.r);
+  c.fillStyle = `rgba(0,0,0,${Math.min(0.55, 0.15 + s.t*0.4)})`;
+  for (let y = -r; y <= r; y++) { const w = Math.floor(Math.sqrt(r*r - y*y)); c.fillRect(Math.round(s.x)-w, Math.round(s.y)+y, 2*w+1, 1); }
+}
+
+// ------------------------------------------------------------------ what Flippy sees
+const E = $("eye"), ex = E.getContext("2d"), EW = 300, EH = 64, FOV = 300 * Math.PI / 180;
+const DETECT = [["Sombra que se acerca", "loom", "LC4 · LPLC2"], ["Otra mosca", "fly_seen", "LC10a · LC11"],
+                ["Obstáculo delante", "obstacle", "LPLC1"], ["Luz", "light", "ocelos"]];
+// tiny first-person raycaster: floor in perspective, upright things with real heights
+const CAM_H = 6, FOCAL = 30;          // eye height (px, a bit above a real fly's, so the ground reads well)
+const UPRIGHT = { wall:[40, [118, 100, 160]], stone:[15, [150, 142, 172]], fan:[12, [78, 168, 222]],
+                  lamp:[20, [255, 246, 196]], food:[5, [250, 214, 90]], bitter:[4, [160, 90, 215]],
+                  dollM:[7, [77, 157, 224]], dollF:[7, [255, 111, 174]] };
+function rayHits(x, y, a, maxD) {
+  const ca = Math.cos(a), sa = Math.sin(a), hits = [];
+  let wall = maxD;
+  for (const [w, v, p] of [[0, ca, x], [AW, ca, x], [0, sa, y], [AH, sa, y]])
+    if (v) { const t = (w - p) / v; if (t > 0) wall = Math.min(wall, t); }
+  hits.push({ d: wall, kind: "wall" });
+  const circle = (cx, cy, r, kind) => {
+    const dx = cx - x, dy = cy - y, proj = dx * ca + dy * sa; if (proj <= 0) return;
+    const perp2 = dx * dx + dy * dy - proj * proj; if (perp2 > r * r) return;
+    const t = proj - Math.sqrt(r * r - perp2); if (t > 0.5 && t < wall) hits.push({ d: t, kind });
+  };
+  S.things.forEach(o => { if (UPRIGHT[o.kind] && (o.kind !== "food" || o.amount > 0))
+    circle(o.x, o.y, o.kind === "lamp" ? 3 : o.kind === "food" ? Math.max(2, o.r * Math.min(1, o.amount / 100 + 0.3)) : o.r, o.kind); });
+  S.dolls.forEach(d => circle(d.x, d.y, 3 * (d.traits.size || 1), d.traits.sex === "M" ? "dollM" : "dollF"));
+  return hits.sort((p, q) => q.d - p.d);                        // far to near (painter)
+}
+function floorColor(wx, wy, lamps) {
+  const chk = ((Math.floor(wx / 16) + Math.floor(wy / 16)) & 1) ? 1 : 0.78;
+  let r = 110 * chk, g = 96 * chk, b = 70 * chk;
+  for (const o of S.things) {                                   // flat things painted on the ground
+    const d = Math.hypot(o.x - wx, o.y - wy);
+    if (o.kind === "food" && d < o.r + 20) { const k = 0.35 * (1 - d / (o.r + 20)); r += (250 - r) * k; g += (214 - g) * k; }  // odour halo
+    else if (o.kind === "heat" && d < o.r) { const k = 1 - d / o.r; r += 120 * k; g += 20 * k; }
+    else if (o.kind === "co2" && d < 30) { const k = 0.5 * (1 - d / 30); r += (200 - r) * k; g += (200 - g) * k; b += (212 - b) * k; }
+  }
+  let lit = S.daylight ?? 1;
+  lamps.forEach(l => lit += 1.2 / (1 + (Math.hypot(l.x - wx, l.y - wy) / 30) ** 2));
+  return [r * lit, g * lit, b * lit];
+}
+let eyeFrame = 0;
+function drawEye(sm) {
+  if ($("w_eye").hidden || !S || (eyeFrame++ & 1)) return;       // 30 fps is plenty
+  const f = sm.fly, img = ex.createImageData(EW, EH), d = img.data, hz = Math.round(EH * 0.42);
+  const lamps = S.things.filter(o => o.kind === "lamp");
+  const put = (col, row, r, g, b) => { const p = 4 * (row * EW + col); d[p] = r; d[p + 1] = g; d[p + 2] = b; d[p + 3] = 255; };
+  for (let col = 0; col < EW; col++) {
+    const a = f.heading - FOV / 2 + (col + 0.5) * FOV / EW, ca = Math.cos(a), sa = Math.sin(a);
+    const hits = rayHits(f.x, f.y, a, 420);
+    const wallD = hits[0].d;
+    // sky (dim room) and floor in perspective up to the wall
+    for (let row = 0; row < EH; row++) {
+      if (row <= hz) { const k = row / hz, dl = 0.35 + 0.65 * (S.daylight ?? 1); put(col, row, (34 + 26 * k) * dl, (28 + 20 * k) * dl, (52 + 30 * k) * dl); continue; }
+      const dist = CAM_H * FOCAL / (row - hz + 0.5);
+      if (dist >= wallD) { put(col, row, 60, 52, 80); continue; }
+      const [r, g, b] = floorColor(f.x + ca * dist, f.y + sa * dist, lamps), fog = Math.max(0.35, 1 - dist / 260);
+      put(col, row, r * fog, g * fog, b * fog);
+    }
+    // upright things, far to near
+    for (const h of hits) {
+      const [height, [cr, cg, cb]] = UPRIGHT[h.kind];
+      const bottom = Math.min(EH - 1, Math.round(hz + CAM_H * FOCAL / h.d));
+      const top = Math.max(0, Math.round(hz - (height - CAM_H) * FOCAL / h.d));
+      const fog = Math.max(0.35, 1 - h.d / 300);
+      let lit = S.daylight ?? 1; lamps.forEach(l => lit += 0.8 / (1 + (Math.hypot(l.x - (f.x + ca * h.d), l.y - (f.y + sa * h.d)) / 40) ** 2));
+      if (h.kind === "lamp") lit = 1.3;
+      for (let row = top; row <= bottom; row++) {
+        const shade = (row === top ? 1.25 : 1) * (h.kind === "wall" && ((row - top) % 6 === 0) ? 0.85 : 1);
+        let r = cr * fog * lit * shade, g = cg * fog * lit * shade, b = cb * fog * lit * shade;
+        if ((h.kind === "dollM" || h.kind === "dollF") && row === top + Math.round((bottom - top) * 0.3)) { r = 215; g = 38; b = 61; } // red eyes
+        put(col, row, r, g, b);
+      }
+    }
+  }
+  ex.putImageData(img, 0, 0);
+  S.shadows.forEach(sh => {                                        // looming hand: dark disc growing
+    const la = Math.atan2(sh.y - f.y, sh.x - f.x), rel = Math.atan2(Math.sin(la - f.heading), Math.cos(la - f.heading));
+    const dist = Math.max(4, Math.hypot(sh.x - f.x, sh.y - f.y)), size = Math.min(EW / 2, sh.r / dist * EW / FOV * 2.2);
+    ex.fillStyle = `rgba(0,0,0,${Math.min(0.8, 0.3 + sh.t * 0.5)})`;
+    ex.beginPath(); ex.arc(EW / 2 + rel / FOV * EW, hz - 8, size, 0, 7); ex.fill();
+  });
+  ex.fillStyle = "rgba(255,210,63,0.5)"; ex.fillRect(EW / 2, 0, 1, 3); ex.fillRect(EW / 2, EH - 3, 1, 3);   // "straight ahead" ticks
+}
+function renderEyeDetectors() {
+  const v = S.sens;
+  if (!$("eye_det").dataset.init) {
+    $("eye_det").innerHTML = `<span class="hd">detector (neuronas)</span><span class="hd">izq.</span><span class="hd">der.</span>` +
+      DETECT.map(([l, k, n]) => `<span>${l} <span style="color:var(--dim)">· ${n}</span></span><div class="bar"><i id="ed_${k}_L"></i></div><div class="bar"><i id="ed_${k}_R"></i></div>`).join("");
+    $("eye_det").dataset.init = 1;
+  }
+  const max = { loom: 150, fly_seen: 40, obstacle: 40, light: 100 };
+  DETECT.forEach(([, k]) => "LR".split("").forEach(s => $(`ed_${k}_${s}`).style.width = Math.min(100, (v[`${k}_${s}`] || 0) / max[k] * 100) + "%"));
+  const seen = [];
+  const nf = S.dolls.filter(d => { const a = Math.atan2(d.y - S.fly.y, d.x - S.fly.x) - S.fly.heading; return Math.abs(Math.atan2(Math.sin(a), Math.cos(a))) < 2.6 && Math.hypot(d.x - S.fly.x, d.y - S.fly.y) < 120; }).length;
+  if (nf) seen.push(`${nf} mosca${nf > 1 ? "s" : ""}`);
+  if ((v.obstacle_L || 0) + (v.obstacle_R || 0) > 8) seen.push("obstáculo cerca");
+  if ((v.light_L || 0) + (v.light_R || 0) > 5) seen.push("luz");
+  if ((v.loom_L || 0) + (v.loom_R || 0) > 5) seen.push("¡algo se acerca!");
+  $("d_eye").textContent = seen.length ? "ve: " + seen.join(" · ") : "nada destacable";
+}
+
+// ------------------------------------------------------------------ experiment mode (silence neurons)
+const CLASS_ES = { optic:"lóbulo óptico (visión)", central:"cerebro central", sensory:"neuronas sensoriales", visual_projection:"proyección visual (detectores)",
+  descending:"descendentes (órdenes al cuerpo)", ascending:"ascendentes (del cuerpo al cerebro)", motor:"motoneuronas", visual_centrifugal:"centrífugas visuales",
+  endocrine:"endocrinas (hormonas)", sensory_ascending:"sensoriales ascendentes" };
+const TYPE_DESC = [["R1-6","fotorreceptores"],["R7","fotorreceptores de color"],["R8","fotorreceptores de color"],["L1","lámina: primera etapa de la visión"],["L2","lámina"],["L3","lámina"],
+  ["L4","lámina"],["L5","lámina"],["Lawf","lámina"],["Mi","médula: procesa el contraste"],["Tm","médula: procesa el contraste"],["TmY","médula"],["Dm","médula"],["Pm","médula"],
+  ["T4","detector de movimiento (claro)"],["T5","detector de movimiento (oscuro)"],["T2","lóbula"],["T3","lóbula"],["Li","lóbula"],["LPLC","detector de acercamiento"],
+  ["LC","detector visual (lóbula)"],["LPi","placa lobular"],["KC","célula de Kenyon (memoria)"],["MBON","salida de la memoria"],["PAM","dopamina de recompensa"],
+  ["PPL1","dopamina de castigo"],["APL","freno de la memoria"],["ORN_","receptor olfativo"],["GRN","receptor del gusto"],["EPG","brújula interna (complejo central)"],
+  ["PEN","brújula interna"],["ER","anillo del complejo central"],["FB","complejo central"],["DN","descendente (orden al cuerpo)"],["MN","motoneurona"],["JO-","oído (órgano de Johnston)"],
+  ["OCG","ocelos (luz)"],["pC1","estado sexual"],["oviDN","poner huevos"],["CB","tipo sin función conocida"],["SMP","protocerebro medial"],["SLP","protocerebro lateral"],
+  ["AVLP","protocerebro ventrolateral"],["PVLP","protocerebro ventrolateral"],["LH","cuerno lateral (olores innatos)"],["M_","proyección olfativa"],["PN","proyección olfativa"]];
+const esc = t => String(t).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+const typeDesc = t => { const m = TYPE_DESC.find(([p]) => t.startsWith(p)); return m ? m[1] : ""; };
+let expBuckets = null, fnSets = {}, expPix = new Uint8Array(240 * 120), expSig = "";
+function expInit() {
+  if (expBuckets || !MAP || !MAP.cls) return;
+  expBuckets = Array.from({ length: 240 * 120 }, () => []);
+  for (let i = 0; i < MAP.n; i++) { const X = MAP.xy[2*i], Y = MAP.xy[2*i+1]; if (X >= 0) expBuckets[Y * 240 + X].push(i); }
+  MAP.functions.forEach(f => fnSets[f.key] = new Set(f.idx));
+  $("exp_fns").innerHTML = MAP.functions.map(f =>
+    `<button data-fn="${f.key}" title="${esc(`${f.label} — ${f.what} Dónde: ${f.where}. Si lo silencias: ${f.effect} (${f.ref})`)}">${f.label}<small>${f.effect}</small></button>`).join("");
+}
+function fnInfo(f) {
+  return `<b style="color:var(--acc)">${f.label}</b> · <span style="color:var(--dim)">${f.where} · ${f.idx.length} neuronas</span><br>
+    <b>Qué es:</b> ${f.what}<br><b>Si lo silencias:</b> ${f.effect} <span style="color:var(--dim)">(${f.ref})</span>`;
+}
+function regionNeurons(cx, cy, r) {
+  const out = [];
+  for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(119, Math.ceil(cy + r)); y++)
+    for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(239, Math.ceil(cx + r)); x++)
+      if ((x - cx) ** 2 + (y - cy) ** 2 <= r * r) for (const i of expBuckets[y * 240 + x]) out.push(i);
+  return out;
+}
+function regionInfo(cx, cy, r) {
+  const ids = regionNeurons(cx, cy, r);
+  if (!ids.length) return "<b>Aquí no hay neuronas.</b>";
+  const cc = {}, tc = {};
+  ids.forEach(i => { const c = MAP.classes[MAP.cls[i]] || "?"; cc[c] = (cc[c] || 0) + 1; const t = MAP.types[MAP.ctype[i]]; if (t) tc[t] = (tc[t] || 0) + 1; });
+  const cls = Object.entries(cc).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([c, n]) => `${CLASS_ES[c] || c} ${Math.round(100 * n / ids.length)} %`).join(" · ");
+  const types = Object.entries(tc).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t, n]) => `${t}${typeDesc(t) ? " (" + typeDesc(t) + ")" : ""} ×${n}`).join(", ");
+  const idset = new Set(ids);
+  const hits = MAP.functions.map(f => [f, f.idx.filter(i => idset.has(i)).length]).filter(([f, n]) => n && n / f.idx.length >= 0.2);
+  const inside = expInside(cx, cy);
+  const side = cx < 110 ? "hemisferio izquierdo" : cx > 130 ? "hemisferio derecho" : "línea media (ambos lados)";
+  return `<b>${ids.length.toLocaleString("es")} neuronas</b> · ${side}<br>
+    <b>Regiones:</b> ${cls}<br><b>Tipos principales:</b> ${types || "—"}<br>
+    <b>Funciones del juego afectadas:</b> ${hits.length ? hits.map(([f, n]) => `${f.label} (${Math.round(100 * n / f.idx.length)} %): ${f.effect}`).join(" · ") : "ninguna de las documentadas (el efecto puede ser sutil o nulo)"}<br>
+    <span style="color:var(--dim)">${inside ? "Ya está silenciada: clic para restaurarla." : "Clic para silenciar esta zona."}</span>`;
+}
+function expInside(cx, cy) {
+  return (S?.silenced || []).find(e => e.kind === "region" && (e.x - cx) ** 2 + (e.y - cy) ** 2 <= e.r * e.r);
+}
+const EM = $("expmap"), emx = EM.getContext("2d"), emImg = emx.createImageData(240, 120);
+let expHover = null;
+function mapPos(e) { const r = EM.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * 240, (e.clientY - r.top) / r.height * 120, e.clientX - r.left, e.clientY - r.top, r]; }
+EM.addEventListener("mousemove", e => {
+  if (!expBuckets) return;
+  const [x, y, px, py, r] = mapPos(e);
+  expHover = [x, y];
+  const tip = $("exp_tip"); tip.hidden = false; tip.innerHTML = regionInfo(x, y, +$("exp_r").value);
+  tip.style.left = Math.min(px + 14, r.width - tip.offsetWidth - 4) + "px"; tip.style.top = Math.min(py + 14, r.height - 10) + "px";
+  $("exp_info").innerHTML = tip.innerHTML;
+});
+EM.addEventListener("mouseleave", () => { $("exp_tip").hidden = true; expHover = null; });
+EM.addEventListener("click", e => {
+  const [x, y] = mapPos(e), hit = expInside(x, y);
+  post(hit ? {cmd:"unsilence", id:hit.id} : {cmd:"silence", kind:"region", x, y, r:+$("exp_r").value});
+});
+$("exp_r").oninput = () => $("exp_r_v").textContent = $("exp_r").value;
+$("exp_r_v").textContent = $("exp_r").value;
+$("exp_fns").addEventListener("mouseover", e => { const b = e.target.closest("[data-fn]"); if (b) $("exp_info").innerHTML = fnInfo(MAP.functions.find(f => f.key === b.dataset.fn)); });
+$("exp_fns").onclick = e => {
+  const b = e.target.closest("[data-fn]"); if (!b) return;
+  const act = (S.silenced || []).find(x => x.key === b.dataset.fn);
+  post(act ? {cmd:"unsilence", id:act.id} : {cmd:"silence", kind:"function", key:b.dataset.fn});
+};
+$("exp_clear").onclick = () => post({cmd:"unsilence"});
+$("exp_active").onclick = e => { if (e.target.dataset.un) post({cmd:"unsilence", id:+e.target.dataset.un}); };
+function expRebuildPix() {
+  const sig = JSON.stringify(S.silenced || []);
+  if (sig === expSig) return;
+  expSig = sig; expPix.fill(0);
+  (S.silenced || []).forEach(e => {
+    if (e.kind === "region") { for (let y = 0; y < 120; y++) for (let x = 0; x < 240; x++) if ((x - e.x) ** 2 + (y - e.y) ** 2 <= e.r * e.r) expPix[y * 240 + x] = 1; }
+    else { const f = MAP.functions.find(f => f.key === e.key); f && f.idx.forEach(i => { const X = MAP.xy[2*i], Y = MAP.xy[2*i+1]; if (X >= 0) expPix[Y * 240 + X] = 1; }); }
+  });
+  $("exp_active").innerHTML = (S.silenced || []).length ? S.silenced.map(e =>
+    `<div><span>${e.kind === "function" ? "🔹" : "🎯"} ${e.label} <span style="color:var(--dim)">· ${e.n.toLocaleString("es")} neuronas</span></span><button class="sm" data-un="${e.id}">✖ restaurar</button></div>`).join("")
+    : `<div class="empty">Ninguna: el cerebro de Flippy está intacto.</div>`;
+  document.querySelectorAll("#exp_fns [data-fn]").forEach(b => b.classList.toggle("on", (S.silenced || []).some(x => x.key === b.dataset.fn)));
+}
+function renderExperiment() {
+  if (!MAP) return;
+  expInit();
+  $("d_exp").textContent = S.n_silenced ? `${S.n_silenced.toLocaleString("es")} neuronas silenciadas${S.memory_online ? "" : " · memoria desconectada"}` : "cerebro intacto";
+  expRebuildPix();
+  if ($("w_exp").hidden) return;
+  const d = emImg.data, r = +$("exp_r").value;
+  for (let p = 0; p < heat.length; p++) {
+    const b = base[p] * 150, h = Math.min(1, heat[p]), s = expPix[p];
+    d[4*p] = s ? 120 + b : 22 + b * 0.6 + h * 200; d[4*p+1] = s ? 20 : 18 + b * 0.5 + h * 240; d[4*p+2] = s ? 30 : 36 + b + h * 160; d[4*p+3] = 255;
+  }
+  emx.putImageData(emImg, 0, 0);
+  if (expHover) { emx.strokeStyle = "#ffd23f"; emx.beginPath(); emx.arc(expHover[0], expHover[1], r, 0, 7); emx.stroke(); }
+}
+
+// ------------------------------------------------------------------ memory window
+const MM = $("memmap"), mx = MM.getContext("2d");
+const opCol = v => v === null || v === undefined ? "#6b6480" : v >= 0.3 ? "#7bd389" : v <= -0.3 ? "#ff5e5b" : "#ffd23f";
+function memEntries() {
+  const out = [];
+  S.things.forEach(t => { if (t.label) out.push({ name: t.label, kind: t.kind, op: S.place_opinions[t.id], place: true }); });
+  S.dolls.forEach(d => out.push({ name: nameOf(S.family, d.id), kind: "fly", op: S.opinions[d.id], place: false }));
+  return out;
+}
+function renderMemory() {
+  const E = memEntries(), good = E.filter(e => e.op >= 0.3), bad = E.filter(e => e.op <= -0.3);
+  $("d_mem").textContent = `le gusta ${good.length} · evita ${bad.length}`;
+  if ($("w_mem").hidden) return;
+  // minimap
+  const W = MM.width, H = Math.round(W * AH / AW);
+  if (MM.height !== H) MM.height = H;
+  const k = W / AW;
+  mx.fillStyle = "#1b1826"; mx.fillRect(0, 0, W, H);
+  mx.strokeStyle = "#3a3350"; mx.lineWidth = 2; mx.strokeRect(1, 1, W - 2, H - 2);
+  const BODY = { leaf:"#4f7a2f", food:"#f4d35e", heat:"#c0502e", stone:"#6b6478", lamp:"#fff6c8", bitter:"#7b2cbf", co2:"#8d99ae", fan:"#4ea8de" };
+  mx.font = "14px VT323, monospace"; mx.textAlign = "center";
+  S.things.forEach(t => {
+    const x = t.x * k, y = t.y * k, r = Math.max(4, t.r * k);
+    mx.fillStyle = BODY[t.kind] || "#888"; mx.globalAlpha = t.kind === "heat" ? 0.45 : 0.9;
+    mx.beginPath(); mx.arc(x, y, r, 0, 7); mx.fill(); mx.globalAlpha = 1;
+    if (!t.label) return;
+    const o = S.place_opinions[t.id];
+    mx.strokeStyle = opCol(o); mx.lineWidth = o === null || o === undefined ? 1.5 : 2 + Math.abs(o) * 4;
+    mx.setLineDash(o === null || o === undefined ? [4, 4] : []);
+    mx.beginPath(); mx.arc(x, y, r + 5, 0, 7); mx.stroke(); mx.setLineDash([]);
+    mx.fillStyle = "#e8e3ff"; mx.fillText(`${t.label}${o === null || o === undefined ? "" : " " + fmtOp(o)}`, x, y - r - 9);
+  });
+  S.dolls.forEach(d => {
+    const o = S.opinions[d.id], x = d.x * k, y = d.y * k;
+    mx.fillStyle = d.traits.sex === "M" ? "#4d9de0" : "#ff6fae"; mx.beginPath(); mx.arc(x, y, 4, 0, 7); mx.fill();
+    if (o !== null && o !== undefined) { mx.strokeStyle = opCol(o); mx.lineWidth = 2; mx.beginPath(); mx.arc(x, y, 7, 0, 7); mx.stroke(); }
+  });
+  const f = S.fly;                                                   // Flippy: gold arrow
+  mx.save(); mx.translate(f.x * k, f.y * k); mx.rotate(f.heading);
+  mx.fillStyle = "#ffd23f"; mx.beginPath(); mx.moveTo(9, 0); mx.lineTo(-6, -5); mx.lineTo(-6, 5); mx.closePath(); mx.fill(); mx.restore();
+  // lists
+  const item = e => `<div>${e.place ? ({leaf:"🍂", food:"🍌", heat:"🔥"})[e.kind] || "📍" : "🪰"} ${e.name}${e.op === null || e.op === undefined ? "" : ` <span style="color:var(--dim)">${fmtOp(e.op)}</span>`}</div>`;
+  const byOp = (a, b) => (b.op ?? 0) - (a.op ?? 0);
+  $("mem_good").innerHTML = good.sort(byOp).map(item).join("") || `<div class="empty">nada todavía</div>`;
+  $("mem_bad").innerHTML = bad.sort((a, b) => a.op - b.op).map(item).join("") || `<div class="empty">nada todavía</div>`;
+  const meh = E.filter(e => !(e.op >= 0.3) && !(e.op <= -0.3));
+  $("mem_meh").innerHTML = meh.map(item).join("") || `<div class="empty">—</div>`;
+  const logEl = $("mem_log"), atBottom = logEl.scrollHeight - logEl.scrollTop - logEl.clientHeight < 20;
+  logEl.innerHTML = (S.learn_log || []).map(e => `<div>${e.t.toFixed(1)} s · ${e.kind === "good" ? "😊" : "😠"} ${e.text}</div>`).join("") || `<div class="empty">Aún no ha aprendido nada: deja que coma, duerma bajo una hoja o pase algún susto.</div>`;
+  if (atBottom) logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ------------------------------------------------------------------ brain view
+const B = $("brain"), bx = B.getContext("2d"), bimg = bx.createImageData(240, 120);
+let heat = new Float32Array(240*120), base = new Float32Array(240*120);
+fetch("/api/map").then(r => r.json()).then(m => {
+  MAP = m;
+  for (let i = 0; i < m.n; i++) { const X = m.xy[2*i], Y = m.xy[2*i+1]; if (X >= 0) base[Y*240+X] += 1; }
+  let mx = 0; base.forEach(v => mx = Math.max(mx, v)); base = base.map(v => Math.sqrt(v/mx));
+});
+function drawBrain(s) {
+  if (!MAP) return;
+  for (let i = 0; i < heat.length; i++) heat[i] *= 0.82;
+  for (const i of s.spikes) { const X = MAP.xy[2*i], Y = MAP.xy[2*i+1]; if (X >= 0) heat[Y*240+X] += 1; }
+  const d = bimg.data;
+  for (let p = 0; p < heat.length; p++) {
+    const b = base[p]*55, h = Math.min(1, heat[p]);
+    const sil = expPix[p];
+    d[4*p] = sil ? 110 + b : 18 + b*0.6 + h*200; d[4*p+1] = sil ? 18 : 14 + b*0.5 + h*240; d[4*p+2] = sil ? 28 : 30 + b + h*160; d[4*p+3] = 255;
+  }
+  bx.putImageData(bimg, 0, 0);
+}
+
+// ------------------------------------------------------------------ panels
+function bars(el, spec, values, max) {
+  if (!el.dataset.init) {
+    el.innerHTML = spec.map(s => typeof s === "string" ? `<div class="h">${s}</div>` :
+      `<span title="${s[2]}">${s[1]} <span style="color:var(--dim)">· ${s[2]}</span></span><div class="bar"><i id="${el.id}_${s[0]}"></i></div><span class="v" id="${el.id}_${s[0]}_v"></span>`).join("");
+    el.dataset.init = 1;
+  }
+  spec.forEach(s => {
+    if (typeof s === "string") return;
+    const v = values[s[0]] || 0;
+    $(`${el.id}_${s[0]}`).style.width = Math.min(100, v / max * 100) + "%";
+    $(`${el.id}_${s[0]}_v`).textContent = Math.round(v);
+  });
+}
+const STATS = [["Hora","clk"],["Tiempo simulado","t"],["Estado de Flippy","st"],["Energía","en"],["Disparos por ciclo (20 ms)","sp"],
+  ["Neuronas activas","lv"],["Velocidad frente a tiempo real","rt"]];
+$("stats").innerHTML = STATS.map(([l, k]) => `<span>${l}: <b id="st_${k}"></b></span>`).join("");
+function renderStats() {
+  const left = S.night ? S.day_len + S.night_len - S.clock : S.day_len - S.clock;
+  const mmss = x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, "0")}`;
+  const v = { clk: !S.daynight ? "siempre de día" : S.night ? `🌙 noche (amanece en ${mmss(left)})` : `☀️ día (anochece en ${mmss(left)})`,
+    t: S.t.toFixed(1) + " s", st: STATE_ES[S.fly.state] || S.fly.state, en: Math.round(S.fly.energy) + " / 100",
+    sp: S.n_spikes.toLocaleString("es"), lv: S.live.toLocaleString("es"), rt: S.ratio.toFixed(2) + "×" };
+  for (const k in v) $("st_" + k).textContent = v[k];
+  $("r_state").textContent = STATE_ES[S.fly.state] || S.fly.state;
+  $("r_energy").style.width = Math.max(0, S.fly.energy) + "%";
+  $("r_energy").style.background = S.fly.energy > 30 ? "var(--good)" : "var(--bad)";
+  $("r_heat").textContent = S.in_heat ? "❤ SÍ (pC1 activo)" : S.fly_rest > 0 ? `💤 descansa ${Math.ceil(S.fly_rest)} s (pulsa para forzar)` : "NO";
+  $("r_heat").classList.toggle("on", S.in_heat);
+  $("r_assist").textContent = S.assist ? "SÍ" : "NO (100% cerebro)"; $("r_assist").classList.toggle("on", S.assist);
+  $("r_mated").textContent = S.mated ? "sí (rechazará a otros machos)" : "no";
+  const suitors = S.dolls.filter(d => d.state === "court" || d.state === "fight");
+  const kids = S.family.filter(m => m.mother === 0).length;
+  $("r_eggs").textContent = (S.mated || S.eggs_laid) ? `${S.eggs_ready} listos · ${S.eggs_pending} madurando · ${S.eggs_laid} puestos · ${kids} hijos · ${S.fly_matings} cópulas` : "— (necesita copular)";
+  const op = S.dolls.map(d => [d, S.opinions[d.id]]).filter(([, v]) => v !== null && v !== undefined)
+    .sort((a, b) => a[1] - b[1]);
+  const who = S.dolls.find(d => d.id === S.scent_owner) ||
+    (typeof S.scent_owner === "string" ? { traits: { name: (S.things.find(t => "p" + t.id === S.scent_owner) || {}).label || "un lugar" } } : null);
+  $("r_sleep").textContent = `${S.fly.state === "sleep" ? "durmiendo" : "despierta"} · cansancio ${Math.round(S.sleep_p * 100)}%${S.under_leaf ? " · bajo una hoja 🍂" : ""}`;
+  $("r_hab").textContent = S.habituation > 0.5 ? `habituada (${S.habituation.toFixed(1)}): le cuesta más despegar` : "sin habituar: despega ante una amenaza fuerte";
+  $("r_memory").textContent = (op.length ? op.map(([d, v]) => `${face(v)} ${d.traits.name} ${fmtOp(v)}`).join(" · ") : "aún no conoce a nadie por su olor")
+    + (who ? ` — ahora huele a ${who.traits.name}` : "");
+  $("r_suitors").textContent = suitors.length ? suitors.map(d => d.traits.name + (d.state === "fight" ? " (peleando)" : " · " + COURT_ES[d.court_stage])).join(", ") : "ninguno";
+  $("r_chemo").textContent = S.chemo;
+  $("pause").classList.toggle("on", S.paused);
+  const top = (spec, vals) => spec.filter(x => typeof x !== "string").map(x => [x, vals[x[0]] || 0]).sort((a, b) => b[1] - a[1])[0];
+  const ts = top(SENS, S.sens), tm = top(MOT, S.motor);
+  $("d_brain").textContent = `${S.n_spikes.toLocaleString("es")} disparos · ${S.live.toLocaleString("es")} activas`;
+  $("d_sens").textContent = ts && ts[1] >= 1 ? `${ts[0][1]}: ${Math.round(ts[1])} Hz` : "sin estímulos";
+  $("d_mot").textContent = tm && tm[1] >= 1 ? `${tm[0][1]}: ${Math.round(tm[1])} Hz` : "en reposo";
+  const nOp = Object.values(S.opinions).filter(v => v !== null && v !== undefined).length;
+  $("d_fly").textContent = `${S.mated ? "fecundada · " : ""}${S.eggs_laid} huevos · recuerda a ${nOp}`;
+  $("btn_daynight").textContent = S.daynight ? (S.night ? "🌙 DÍA/NOCHE: SÍ" : "☀️ DÍA/NOCHE: SÍ") : "☀️ DÍA/NOCHE: NO";
+  $("btn_daynight").classList.toggle("on", S.daynight);
+  $("sim_error").hidden = !S.error; if (S.error) $("sim_error_msg").textContent = S.error;
+  $("log").textContent = S.log.join("\n");
+}
+
+// ------------------------------------------------------------------ smoothing (poses arrive ~16x/s)
+function lerpPose(p0, p1, k) {
+  if (!p0 || Math.hypot(p1.x - p0.x, p1.y - p0.y) > 40) return p1;
+  const dh = Math.atan2(Math.sin(p1.heading - p0.heading), Math.cos(p1.heading - p0.heading));
+  return { ...p1, x: p0.x + (p1.x - p0.x) * k, y: p0.y + (p1.y - p0.y) * k, heading: p0.heading + dh * k,
+           z: (p0.z || 0) + ((p1.z || 0) - (p0.z || 0)) * k };
+}
+function k() { return Math.min(1, (performance.now() - tRecv) / pollDt); }
+function smoothed() {
+  const kk = k();
+  return { fly: lerpPose(prev.fly, S.fly, kk), dolls: S.dolls.map(d => lerpPose(prev["d" + d.id], d, kk)) };
+}
+
+// ------------------------------------------------------------------ main loops
+let T = 0;
+const labelEls = {};
+function frame() {
+  T += 1/60;
+  ax.drawImage(floor, 0, 0);
+  if (S) {
+    const sm = smoothed();
+    S.things.forEach(o => drawThing(ax, o, T));
+    S.brood.forEach(b => drawBrood(ax, b, T));
+    sm.dolls.forEach(d => drawDoll(ax, d, T));
+    drawRealFly(ax, sm.fly, T);
+    drawEye(sm);
+    S.things.filter(o => o.kind === "leaf").forEach(o => drawLeaf(ax, o, T));
+    drawNight(ax);
+    if (S.fly.state === "sleep") drawZzz(ax, sm.fly, T);
+    sm.dolls.forEach(d => { if (d.state === "sleep") drawZzz(ax, d, T); });
+    S.shadows.forEach(s => drawShadow(ax, s));
+    ax.fillStyle = "#000a"; ax.fillRect(4, 4, 52, 6);
+    ax.fillStyle = S.fly.energy > 30 ? "#7bd389" : "#ff5e5b"; ax.fillRect(5, 5, Math.max(0, S.fly.energy/2), 4);
+    // HTML name labels over the canvas
+    const seen = new Set(), placed = [], pxScale = A.getBoundingClientRect().width / AW || 1;
+    const put = (key, p, text, color, dy) => {
+      seen.add(key);
+      let el = labelEls[key];
+      if (!el) { el = labelEls[key] = document.createElement("span"); $("labels").appendChild(el); }
+      // hide a name that would overlap one already drawn (Flippy is drawn first, so hers wins)
+      // label size in arena px depends on how much the canvas is scaled on screen
+      const lx = p.x, ly = p.y - (p.z || 0) - dy, w = (text.length * 8 + 6) / pxScale, hgt = 16 / pxScale;
+      const clash = placed.some(q => Math.abs(q.x - lx) < (q.w + w) / 2 && Math.abs(q.y - ly) < hgt);
+      el.hidden = clash;
+      if (clash) return;
+      placed.push({ x: lx, y: ly, w });
+      el.textContent = text; el.style.color = color;
+      el.style.left = (p.x / AW * 100) + "%"; el.style.top = Math.max(6, (p.y - (p.z || 0) - dy) / AH * 100) + "%";  // keep on-canvas near the top edge
+    };
+    put("fly", sm.fly, "FLIPPY", "#ffd23f", 11);
+    sm.dolls.forEach(d => put("d" + d.id, d, d.traits.name, d.traits.sex === "M" ? "#8cc0ff" : "#ffb3d4",
+      12 * d.traits.size + (d.traits.mating || d.traits.aggression > 0.3 || d.traits.helper > 0.5 ? 8 : 0)));
+    for (const key in labelEls) if (!seen.has(key)) { labelEls[key].remove(); delete labelEls[key]; }
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+async function poll() {
+  try {
+    const next = await (await fetch("/api/state")).json();
+    const now = performance.now();
+    if (S) {
+      const sm = smoothed();
+      prev = { fly: sm.fly };
+      sm.dolls.forEach(d => prev["d" + d.id] = d);
+      pollDt = 0.8 * pollDt + 0.2 * (now - tRecv);
+    }
+    S = next; tRecv = now;
+    if (S.arena) setArena(S.arena.w, S.arena.h);
+    if (!$("w_brain").hidden || !$("w_exp").hidden) drawBrain(S);
+    bars($("sens"), SENS, S.sens, 150);
+    bars($("mot"), MOT, S.motor, 100);
+    renderStats();
+    renderEyeDetectors();
+    renderMemory();
+    renderExperiment();
+    renderDolls();
+    renderTree();
+    if (!$("m_rel").hidden && Math.floor(performance.now() / 1000) !== renderRelations.last) { renderRelations.last = Math.floor(performance.now() / 1000); renderRelations(); }
+  } catch (e) { if (!shuttingDown) console.error(e); }
+  if (!shuttingDown) setTimeout(poll, 60);
+}
+poll();
+</script>
+</body>
+</html>

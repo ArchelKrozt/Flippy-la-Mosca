@@ -1,0 +1,4 @@
+numpy>=2.0
+pandas>=2.0
+pyarrow>=14
+numba>=0.60  # optional: ~2-8x faster brain; without it a numpy fallback is used
