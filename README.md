@@ -1,5 +1,7 @@
 # 🪰 FLIPPY LA MOSCA
 
+**Español** · [Read in English](README.en.md)
+
 **El cerebro completo de una mosca de la fruta, corriendo en tu portátil y viviendo en un mundo pixel-art.**
 
 Flippy tiene el conectoma real de *Drosophila melanogaster* (FlyWire v783: **138.639 neuronas y 15 millones
