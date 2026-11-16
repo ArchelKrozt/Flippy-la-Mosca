@@ -61,12 +61,13 @@ Next time, just activate the environment (`source .venv/bin/activate`) and run `
 
 ## Interface guide
 
-- **Arena:** pick a tool and click the arena to place it: 🍌 food, ☠ bitter, 💨 CO₂, 🔥 heat, 🌀 wind, 💡 light,
-  🪨 stone, 🍂 leaf, ✋ hand swat, 🪰 doll fly (opens a window to set it up) and ✖ erase.
+- **Arena:** pick a tool and click the arena to place it: 🍌 food, 💧 water, ☠ bitter, 💨 CO₂, 🔥 heat, 🌀 wind,
+  💡 light, 🪨 stone, 🍂 leaf, ✋ hand swat, 🪰 doll fly (opens a window to set it up) and ✖ erase.
 - **Controls:** pause, restart, save/load, ⏻ save & quit, 🌙 day/night cycle, arena size, simulation **speed** and the
   body's **urge to walk** (*ganas de caminar*: − stays put, + walks more).
-- **Flippy's card** (right): her state, energy, **mating season** (*época de apareamiento* — switch it on so she
-  accepts males) and **assisted navigation** (*navegación asistida* — switch it off to see 100 % brain behaviour).
+- **Flippy's card** (right): her state, energy, **thirst**, **mating season** (*época de apareamiento* — switch it
+  on so she accepts males) and **assisted navigation** (*navegación asistida* — switch it off to see 100 % brain
+  behaviour).
 - **PANELES** *(panels)* — floating windows you can drag; they remember their position and close with ✖ or Esc:
   🪰 Flippy in detail · 🧪 Experiment: silence neurons · 🧭 Flippy's memory · 👁 What Flippy sees ·
   🧠 Brain (live spikes) · 📶 Senses → neurons · ⚡ Commands to the body. Each button shows a live summary.
@@ -82,6 +83,7 @@ Next time, just activate the environment (`source .venv/bin/activate`) and run `
 | Tool | What happens in Flippy's brain |
 |---|---|
 | 🍌 Food | she smells fruit (ORN DM1/DM4…) → approaches; on contact, her sugar neurons drive **MN9** and she extends her proboscis to eat |
+| 💧 Water | no smell (this connectome has no water ORN); she only finds it by chance or by returning to a puddle she already remembers. On contact she drinks and her hydration rises — **not through MN9** (measured: pure water gives 0 Hz on MN9, vs. 26 Hz for sugar), so drinking is a scripted reflex, not a brain readout |
 | ✋ Hand swat | an expanding shadow drives **LC4/LPLC2** → **giant fiber (DNp01)** → she takes off to escape |
 | 💨 CO₂ · 🔥 Heat | drive **DNb05** → she moves away; heat is also a punishment she remembers |
 | ☠ Bitter | drives her bitter taste neurons (legs); in this model it barely reaches the motor commands |
@@ -223,6 +225,10 @@ rejecting (vpoDN / DNp13), when to lay eggs (oviDN), what memory learns (Kenyon�
 - \***Song shortcut:** courtship song also drives vpoEN; the temporal filter for the song pulse isn't reproduced with
   fixed weights (song alone never reaches vpoEN in simulation).
 - **Urge to walk:** the connectome doesn't generate spontaneous walking; the body walks and the brain modulates it.
+- **Thirst:** her hydration drains on its own over time and rises on contact with 💧 water (a scripted reflex:
+  measured, pure water never reaches MN9). It modulates her urge to seek water the same way hunger modulates her
+  taste for sugar, and dehydration somewhat brakes egg-laying — with no real thirst pathway in this connectome,
+  unlike sugar and food odour, which brake oviDN on their own.
 - The memory "opinion" is computed from the current synapses (the input the MBONs would receive); the change in MBON
   firing is small because each odour activates few Kenyon cells.
 

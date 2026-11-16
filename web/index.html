@@ -179,6 +179,7 @@
       <div class="kv">
         <span>estado</span><b id="r_state"></b>
         <span>energía</span><div class="meter"><i id="r_energy"></i></div>
+        <span>sed</span><div class="meter"><i id="r_hydration"></i></div>
         <span>época</span><div><button class="sm" id="r_heat"></button></div>
         <span>navegación</span><div><button class="sm" id="r_assist" title="Navegación asistida: el cerebro decide si le atrae algo; un reflejo del cuerpo elige la dirección"></button></div>
         <span>ahora</span><span id="r_chemo" style="font-size:16px"></span>
@@ -240,7 +241,7 @@
     </div>
     <div class="hd" style="margin-top:8px">LO QUE HA IDO APRENDIENDO</div>
     <div id="mem_log"></div>
-    <div class="hint" style="margin:8px 0 0">Memoria real de su cuerpo pedunculado: cada lugar (hoja, comida, zona de calor) y cada mosca tiene su olor, que activa un grupo de células de Kenyon. Dolor (golpes, calor → dopamina PPL1) o recompensa (comer, dormir tranquila → dopamina PAM) cambian esas sinapsis. Con navegación asistida, el cuerpo la lleva a su hoja o comedero favorito y la aparta de lo que recuerda mal. Se consolida al dormir y se extingue si la experiencia cambia.</div>
+    <div class="hint" style="margin:8px 0 0">Memoria real de su cuerpo pedunculado: cada lugar (hoja, comida, agua, zona de calor) y cada mosca tiene su olor, que activa un grupo de células de Kenyon. Dolor (golpes, calor → dopamina PPL1) o recompensa (comer, beber, dormir tranquila → dopamina PAM) cambian esas sinapsis. Con navegación asistida, el cuerpo la lleva a su hoja, comedero o charco favorito y la aparta de lo que recuerda mal. El agua no tiene olor: solo puede volver a un charco que ya haya encontrado por azar. Se consolida al dormir y se extingue si la experiencia cambia.</div>
   </div>
 </div>
 <div class="float" id="w_eye" hidden role="dialog" aria-labelledby="wt_eye" style="width:min(620px, 94vw)">
@@ -349,6 +350,7 @@ const DOLL_STATE_ES = { wander:"paseando", approach:"se acerca", avoid:"se aleja
 const SENS = [
   "GUSTO (patas)",
   ["sugar_L","Azúcar · izq.","GRN de azúcar"], ["sugar_R","Azúcar · der.","GRN de azúcar"],
+  ["water_L","Agua · izq.","GRN de agua"], ["water_R","Agua · der.","GRN de agua"],
   ["bitter_L","Amargo · izq.","GRN amargos"], ["bitter_R","Amargo · der.","GRN amargos"],
   "OLFATO (antenas)",
   ["odor_good_L","Olor a comida · izq.","ORN DM1/DM4/DP1m/VM7d"], ["odor_good_R","Olor a comida · der.","ORN DM1/DM4/DP1m/VM7d"],
@@ -388,7 +390,7 @@ const MOT = [
   ["mbon_approach","Salida \"acercarse\"","MBON de compartimentos PPL1"],
   ["mbon_avoid","Salida \"evitar\"","MBON de compartimentos PAM"],
 ];
-const TOOLS = [["food","🍌 COMIDA"],["bitter","☠ AMARGO"],["co2","💨 CO₂"],["heat","🔥 CALOR"],
+const TOOLS = [["food","🍌 COMIDA"],["water","💧 AGUA"],["bitter","☠ AMARGO"],["co2","💨 CO₂"],["heat","🔥 CALOR"],
   ["fan","🌀 VIENTO"],["lamp","💡 LUZ"],["stone","🪨 PIEDRA"],["leaf","🍂 HOJA"],["shadow","✋ MANOTAZO"],["doll","🪰 MUÑECA"],["erase","✖ BORRAR"]];
 const NAMES = ["Lola","Pepa","Rocío","Maruja","Chelo","Nube","Toño","Paco","Chema","Rulo","Zumbi","Pancho","Bzz","Mosqui","Tito","Luna"];
 
@@ -978,6 +980,11 @@ function drawThing(c, o, t) {
       px(c, x + Math.cos(a) * d, y + Math.sin(a) * d, `rgba(255,230,120,${(0.55 * (1 - life) * k).toFixed(2)})`);
     }
     disc(c, x, y, r, "#f4d35e"); disc(c, x-1, y-1, Math.max(1, r-3), "#fff1a8"); px(c, x+r-1, y-r+1, "#6b4f1d");
+  } else if (o.kind === "water") {                                  // still puddle, no smell: just a shimmer
+    const r = o.r;
+    disc(c, x, y, r, "#1d5c8a"); disc(c, x - 1, y - 1, Math.max(1, r - 3), "#3a86c8");
+    const sh = 0.5 + 0.5 * Math.sin(t * 2 + o.id);
+    px(c, x + Math.round(r * 0.3), y - Math.round(r * 0.3), `rgba(220,245,255,${(0.5 + 0.4 * sh).toFixed(2)})`);
   } else if (o.kind === "bitter") {
     disc(c, x, y, o.r, "#7b2cbf"); disc(c, x-1, y-1, o.r-3, "#a663cc");
     px(c,x-1,y-1,"#fff"); px(c,x+1,y-1,"#fff"); px(c,x,y+1,"#fff");
@@ -1283,7 +1290,7 @@ function renderMemory() {
   const k = W / AW;
   mx.fillStyle = "#1b1826"; mx.fillRect(0, 0, W, H);
   mx.strokeStyle = "#3a3350"; mx.lineWidth = 2; mx.strokeRect(1, 1, W - 2, H - 2);
-  const BODY = { leaf:"#4f7a2f", food:"#f4d35e", heat:"#c0502e", stone:"#6b6478", lamp:"#fff6c8", bitter:"#7b2cbf", co2:"#8d99ae", fan:"#4ea8de" };
+  const BODY = { leaf:"#4f7a2f", food:"#f4d35e", water:"#3a86c8", heat:"#c0502e", stone:"#6b6478", lamp:"#fff6c8", bitter:"#7b2cbf", co2:"#8d99ae", fan:"#4ea8de" };
   mx.font = "14px VT323, monospace"; mx.textAlign = "center";
   S.things.forEach(t => {
     const x = t.x * k, y = t.y * k, r = Math.max(4, t.r * k);
@@ -1305,7 +1312,7 @@ function renderMemory() {
   mx.save(); mx.translate(f.x * k, f.y * k); mx.rotate(f.heading);
   mx.fillStyle = "#ffd23f"; mx.beginPath(); mx.moveTo(9, 0); mx.lineTo(-6, -5); mx.lineTo(-6, 5); mx.closePath(); mx.fill(); mx.restore();
   // lists
-  const item = e => `<div>${e.place ? ({leaf:"🍂", food:"🍌", heat:"🔥"})[e.kind] || "📍" : "🪰"} ${e.name}${e.op === null || e.op === undefined ? "" : ` <span style="color:var(--dim)">${fmtOp(e.op)}</span>`}</div>`;
+  const item = e => `<div>${e.place ? ({leaf:"🍂", food:"🍌", water:"💧", heat:"🔥"})[e.kind] || "📍" : "🪰"} ${e.name}${e.op === null || e.op === undefined ? "" : ` <span style="color:var(--dim)">${fmtOp(e.op)}</span>`}</div>`;
   const byOp = (a, b) => (b.op ?? 0) - (a.op ?? 0);
   $("mem_good").innerHTML = good.sort(byOp).map(item).join("") || `<div class="empty">nada todavía</div>`;
   $("mem_bad").innerHTML = bad.sort((a, b) => a.op - b.op).map(item).join("") || `<div class="empty">nada todavía</div>`;
@@ -1351,7 +1358,7 @@ function bars(el, spec, values, max) {
     $(`${el.id}_${s[0]}_v`).textContent = Math.round(v);
   });
 }
-const STATS = [["Hora","clk"],["Tiempo simulado","t"],["Estado de Flippy","st"],["Energía","en"],["Disparos por ciclo (20 ms)","sp"],
+const STATS = [["Hora","clk"],["Tiempo simulado","t"],["Estado de Flippy","st"],["Energía","en"],["Sed","hy"],["Disparos por ciclo (20 ms)","sp"],
   ["Neuronas activas","lv"],["Velocidad frente a tiempo real","rt"]];
 $("stats").innerHTML = STATS.map(([l, k]) => `<span>${l}: <b id="st_${k}"></b></span>`).join("");
 function renderStats() {
@@ -1359,11 +1366,14 @@ function renderStats() {
   const mmss = x => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, "0")}`;
   const v = { clk: !S.daynight ? "siempre de día" : S.night ? `🌙 noche (amanece en ${mmss(left)})` : `☀️ día (anochece en ${mmss(left)})`,
     t: S.t.toFixed(1) + " s", st: STATE_ES[S.fly.state] || S.fly.state, en: Math.round(S.fly.energy) + " / 100",
+    hy: Math.round(S.fly.hydration) + " / 100",
     sp: S.n_spikes.toLocaleString("es"), lv: S.live.toLocaleString("es"), rt: S.ratio.toFixed(2) + "×" };
   for (const k in v) $("st_" + k).textContent = v[k];
   $("r_state").textContent = STATE_ES[S.fly.state] || S.fly.state;
   $("r_energy").style.width = Math.max(0, S.fly.energy) + "%";
   $("r_energy").style.background = S.fly.energy > 30 ? "var(--good)" : "var(--bad)";
+  $("r_hydration").style.width = Math.max(0, S.fly.hydration) + "%";
+  $("r_hydration").style.background = S.fly.hydration > 30 ? "#3a86c8" : "var(--bad)";
   $("r_heat").textContent = S.in_heat ? "❤ SÍ (pC1 activo)" : S.fly_rest > 0 ? `💤 descansa ${Math.ceil(S.fly_rest)} s (pulsa para forzar)` : "NO";
   $("r_heat").classList.toggle("on", S.in_heat);
   $("r_assist").textContent = S.assist ? "SÍ" : "NO (100% cerebro)"; $("r_assist").classList.toggle("on", S.assist);

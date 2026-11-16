@@ -11,6 +11,8 @@ import time
 
 import numpy as np
 
+sys.stdout.reconfigure(errors="replace")  # a Windows console in an old code page: "?" instead of crashing
+
 from .brain import make_brain
 from .memory import MushroomMemory
 from .neurons import load_groups
@@ -51,6 +53,12 @@ def main():
     # 150 Hz = what food gives in the game; 3 seeds: a single run varies by ±5 Hz
     mn9 = np.mean([run([(cat("sugar_L", "sugar_R"), 150)], seed=s)[M["feed"]][:2].mean() for s in range(3)])
     check("Azúcar → MN9 (comer)", mn9 > 20, f"MN9 {mn9:.0f} Hz (Shiu et al. 2024)")
+
+    # pure water (a puddle, not fruit): only the water GRNs, no sugar neurons at all. Measured:
+    # unlike sugar, water alone never reaches MN9 -- drinking is coded as a scripted reflex
+    # (world.py), not read from the brain. This check guards that finding, not a game feature.
+    mn9_w = np.mean([run([(cat("water_L", "water_R"), 150)], seed=s)[M["feed"]][:2].mean() for s in range(3)])
+    check("Agua pura no llega a MN9 (bebida: reflejo, no conectoma)", mn9_w < 10, f"MN9 {mn9_w:.0f} Hz")
 
     hz = run([(cat("loom_L", "loom_R"), 100)], steps=2500)
     check("Sombra que se acerca → fibra gigante (escape)", hz[M["escape"]].mean() > 20,

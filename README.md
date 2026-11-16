@@ -49,7 +49,7 @@ Las siguientes veces basta con activar el entorno (`source .venv/bin/activate`) 
   guardan en `data/models/` para hacerlos compatibles más adelante. Enter = jugar.
 - `python server.py --no-menu` entra directo · `--port 8080` usa otro puerto · `--no-browser` no abre el navegador.
 - `python download_data.py --list` lista el catálogo; `python download_data.py manc121` descarga uno sin abrir el juego.
-- `python -m flippy.selftest` comprueba en ~20 s que el cerebro reproduce los resultados clave (9 pruebas).
+- `python -m flippy.selftest` comprueba en ~20 s que el cerebro reproduce los resultados clave (10 pruebas).
 
 ### Apagar y guardar
 - Botón **⏻ GUARDAR Y APAGAR** en la página, o **Ctrl+C** en la Terminal: en ambos casos guarda antes de cerrar.
@@ -58,12 +58,12 @@ Las siguientes veces basta con activar el entorno (`source .venv/bin/activate`) 
 
 ## Guía de la interfaz
 
-- **Arena:** elige una herramienta y haz clic en la arena para colocarla: 🍌 comida, ☠ amargo, 💨 CO₂, 🔥 calor,
-  🌀 viento, 💡 luz, 🪨 piedra, 🍂 hoja, ✋ manotazo, 🪰 muñeca (abre una ventana para configurarla) y ✖ borrar.
+- **Arena:** elige una herramienta y haz clic en la arena para colocarla: 🍌 comida, 💧 agua, ☠ amargo, 💨 CO₂,
+  🔥 calor, 🌀 viento, 💡 luz, 🪨 piedra, 🍂 hoja, ✋ manotazo, 🪰 muñeca (abre una ventana para configurarla) y ✖ borrar.
 - **Controles:** pausa, reiniciar, guardar/cargar, ⏻ guardar y apagar, 🌙 ciclo día/noche, tamaño de la arena,
   **velocidad** de la simulación y **ganas de caminar** del cuerpo (− más quieta, + camina más).
-- **Ficha de Flippy** (derecha): su estado, energía, **época de apareamiento** (botón: actívala para que acepte
-  machos) y **navegación asistida** (botón: desactívala para ver el comportamiento 100 % cerebral).
+- **Ficha de Flippy** (derecha): su estado, energía, **sed**, **época de apareamiento** (botón: actívala para que
+  acepte machos) y **navegación asistida** (botón: desactívala para ver el comportamiento 100 % cerebral).
 - **PANELES** (ventanas flotantes que se arrastran y recuerdan su posición; se cierran con ✖ o Esc):
   🪰 Flippy en detalle · 🧪 Experimento: silenciar neuronas · 🧭 Memoria de Flippy · 👁 Lo que ve Flippy ·
   🧠 Cerebro (disparos en vivo) · 📶 Sentidos → neuronas · ⚡ Órdenes al cuerpo. Cada botón muestra un resumen en vivo.
@@ -77,6 +77,7 @@ Las siguientes veces basta con activar el entorno (`source .venv/bin/activate`) 
 | Herramienta | Qué pasa en el cerebro de Flippy |
 |---|---|
 | 🍌 Comida | huele a fruta (ORN DM1/DM4…) → se acerca; al tocarla, las neuronas del azúcar activan **MN9** y saca la probóscide para comer |
+| 💧 Agua | sin olor (no hay ORN de agua en este conectoma); solo la encuentra por azar o volviendo a un charco que ya recordaba. Al tocarla, bebe y sube su hidratación — **no por MN9** (medido: agua pura da 0 Hz en MN9, frente a 26 Hz con azúcar), así que beber es un reflejo guionizado, no una lectura del cerebro |
 | ✋ Manotazo | una sombra que crece activa **LC4/LPLC2** → **fibra gigante (DNp01)** → despega para escapar |
 | 💨 CO₂ · 🔥 Calor | activan **DNb05** → se aleja; el calor además es un castigo que recuerda |
 | ☠ Amargo | activa sus neuronas del amargo (patas); en este modelo apenas llega a las órdenes motoras |
@@ -218,6 +219,10 @@ lóbulo antenal sus neuronas de proyección olfativa responden un 20-30 % más a
 - \***Atajo del canto:** el canto también estimula vpoEN; el filtro temporal del pulso de canto no se reproduce con
   pesos fijos (el canto solo nunca llega a vpoEN en simulación).
 - **Ganas de caminar:** el conectoma no genera marcha espontánea; el cuerpo camina y el cerebro lo modula.
+- **Sed:** su hidratación baja sola con el tiempo y sube al tocar 💧 agua (reflejo guionizado: medido, el agua
+  pura no llega a MN9). Modula las ganas de buscar agua igual que el hambre modula el gusto por el azúcar, y
+  deshidratada frena algo la puesta de huevos — sin una vía real de sed en este conectoma, a diferencia del
+  azúcar y el olor a comida, que sí frenan oviDN por sí solos.
 - La "opinión" de la memoria se calcula de las sinapsis actuales (la entrada que recibirían las MBON); el cambio
   en el disparo de las MBON es pequeño porque cada olor activa pocas Kenyon.
 

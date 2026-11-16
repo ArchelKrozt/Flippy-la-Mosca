@@ -23,6 +23,9 @@ SUGAR = "['sugar', 'sugar/low_salt', 'water', 'sugar/water']"
 SENSORY = {  # name -> query ; *_L/*_R are the two sides of the body
     "sugar_L": f"cell_sub_class in {SUGAR} and side=='left'",
     "sugar_R": f"cell_sub_class in {SUGAR} and side=='right'",
+    # pure water (a puddle, not fruit): only the 'water' sub-class, no sugar neurons
+    "water_L": "cell_sub_class=='water' and side=='left'",
+    "water_R": "cell_sub_class=='water' and side=='right'",
     "bitter_L": "cell_sub_class=='bitter' and side=='left'",
     "bitter_R": "cell_sub_class=='bitter' and side=='right'",
     "odor_good_L": f"cell_type in {ATTRACTIVE_ORN} and side=='left'",

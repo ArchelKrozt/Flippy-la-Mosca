@@ -30,7 +30,7 @@ class Thing:
         Thing._id += 1
         self.id, self.kind, self.x, self.y = Thing._id, kind, float(x), float(y)
         self.r = kw.get("r", {"food": 7, "bitter": 7, "co2": 5, "heat": 22, "fan": 6, "stone": 9, "lamp": 5,
-                              "leaf": 18}.get(kind, 6))
+                              "leaf": 18, "water": 9}.get(kind, 6))
         self.amount = kw.get("amount", 100.0)
         self.label = kw.get("label", "")      # "Hoja 2", "Comida 1"... (places Flippy can remember)
         self.scent = kw.get("scent", [])      # a place's own odour (glomeruli), for place memory
@@ -52,7 +52,7 @@ SAVE_VERSION = 2
 # glomeruli not used by any other sense: each fly gets 10 of them as its individual odour
 SOCIAL_ORN = {"ORN_DA1", "ORN_VA1v", "ORN_VA1d"}
 SCENT_SIZE, SCENT_HZ, SCENT_SIGMA = 10, 80.0, 25.0
-PLACE_KINDS = {"leaf": "Hoja", "food": "Comida", "heat": "Calor"}   # places with their own odour
+PLACE_KINDS = {"leaf": "Hoja", "food": "Comida", "heat": "Calor", "water": "Agua"}   # places with their own odour
 PLACE_SCENT_SIZE = 8
 def max_dolls():
     return max(4, round(W * H / AREA_PER_FLY))
@@ -85,7 +85,7 @@ class World:
         self.scent_orn = {t: g.idx.to_numpy() for t, g in orn.groupby("cell_type") if t not in used}
         self.scent_pool = sorted(self.scent_orn)
         self.steps_per_tick = round(TICK_MS / dt)
-        self.gain = {"sugar": 1.0, "bitter": 1.0, "odor_good": 1.0, "odor_bad": 1.0,
+        self.gain = {"sugar": 1.0, "water": 1.0, "bitter": 1.0, "odor_good": 1.0, "odor_bad": 1.0,
                      "loom": 1.0, "wind": 1.0, "touch": 1.0, "heat": 1.0}
         self.base_walk = 0.35  # intrinsic exploratory drive (body CPG), brain modulates it
         # Assisted navigation: the brain decides *whether* (motivation), a body reflex
@@ -106,7 +106,7 @@ class World:
         self.scent_owner = None
         self.pain, self.pain_from = 0.0, None
         self.flippy_scent = list(np.random.choice(self.scent_pool, SCENT_SIZE, replace=False))
-        self.fly = dict(x=W / 2, y=H / 2, heading=0.0, speed=0.0, energy=60.0,
+        self.fly = dict(x=W / 2, y=H / 2, heading=0.0, speed=0.0, energy=60.0, hydration=100.0,
                         state="walk", state_t=0.0, proboscis=0.0, z=0.0, ovi=0.0)
         self.fly_in_heat = False  # "época de apareamiento" of the real fly -> pC1 drive
         self.fly_mated = False
@@ -125,7 +125,7 @@ class World:
                                real=True, alive=True, born=0.0, died=None, matings=0, cause=None)}
         kx, ky = W / 320, H / 200
         self.things = []
-        for kind, x, y in (("food", 60, 50), ("bitter", 260, 150), ("co2", 270, 40)):
+        for kind, x, y in (("food", 60, 50), ("bitter", 260, 150), ("co2", 270, 40), ("water", 280, 170)):
             self.add(kind, x * kx, y * ky)
         self.dolls = []
         self.shadows = []  # looming threats: dict(x, y, r, t)
@@ -455,6 +455,8 @@ class World:
         for s, (px, py) in pts.items():
             # 150 Hz: sugar GRNs on ripe fruit (was 110 with the old, larger 'sugar/water' group)
             r[f"sugar_{s}"] = 0 if airborne else 150.0 * self._touching("food", px, py) * self.gain["sugar"]
+            # pure water (a puddle): only the water GRNs, no sugar
+            r[f"water_{s}"] = 0 if airborne else 150.0 * self._touching("water", px, py) * self.gain["water"]
             r[f"bitter_{s}"] = 0 if airborne else 110.0 * self._touching("bitter", px, py) * self.gain["bitter"]
             r[f"odor_good_{s}"] = self._orn(f"good{s}", self._field("food", px, py),
                                             self.gain["odor_good"] * (0.6 + 0.9 * hunger))
@@ -706,6 +708,12 @@ class World:
         elif f["state"] != "startle":
             # hysteresis + minimum dwell so noisy rates don't make the state flicker
             feeding = m["feed"] > (2 if f["state"] == "feed" else 8)
+            # measured: pure water alone never reaches MN9 in this connectome (0 Hz in the
+            # selftest, vs. 26 Hz for sugar) -- drinking is a scripted reflex, not a brain
+            # readout, same honesty as the "assisted" features below
+            on_water = any(t.kind == "water" and math.hypot(t.x - f["x"], t.y - f["y"]) < t.r + 6
+                           for t in self.things)
+            feeding = feeding or on_water
             grooming = m["groom"] > (4 if f["state"] == "groom" else 12) and not feeding
             # grooming bouts are short in real flies: cap at 2 s, then 1 s refractory
             if f["state"] == "groom" and f["state_t"] > 2.0:
@@ -724,7 +732,8 @@ class World:
                 new = f["state"]
             if new != f["state"]:
                 if new == "feed":
-                    self.event("MN9 activa: saca la probóscide y come")
+                    self.event("MN9 activa: saca la probóscide y come" if not on_water
+                              else "Saca la probóscide y bebe (reflejo, no es MN9)")
                 elif new == "groom":
                     self.event("DNg84 activa: se acicala")
                 f["state"], f["state_t"] = new, 0.0
@@ -824,6 +833,16 @@ class World:
                         turn = 3.0 * math.sin(to - f["heading"])
                         fwd += 0.2
                         self.chemo = f"tiene hambre: va a su comedero favorito ({good[1].label}, memoria)"
+                    elif f["hydration"] < 50:
+                        # water has no smell (real biology): she can only navigate back to a
+                        # puddle she already found by chance, never find a brand-new one by scent
+                        good = max(((o, t, d) for o, t, d in places if o is not None and o > 0.3
+                                    and t.kind == "water"), key=lambda z: z[0] - z[2] / 600, default=None)
+                        if good:
+                            to = math.atan2(good[1].y - f["y"], good[1].x - f["x"])
+                            turn = 3.0 * math.sin(to - f["heading"])
+                            fwd += 0.2
+                            self.chemo = f"tiene sed: va a su charco favorito ({good[1].label}, memoria)"
             if receptive:
                 fwd *= 0.3
                 self.chemo = "se detiene: está receptiva (vpoDN)"
@@ -843,9 +862,12 @@ class World:
             f["energy"] -= (0.3 + abs(f["speed"]) * 0.01) * dt
             if feeding:
                 for t in self.things:
-                    if t.kind == "food" and math.hypot(t.x - f["x"], t.y - f["y"]) < t.r + 6:
-                        t.amount -= 8 * dt
-                        f["energy"] = min(100.0, f["energy"] + 8 * dt)
+                    if t.kind in ("food", "water") and math.hypot(t.x - f["x"], t.y - f["y"]) < t.r + 6:
+                        if t.kind == "food":
+                            t.amount -= 8 * dt
+                            f["energy"] = min(100.0, f["energy"] + 8 * dt)
+                        else:                           # a puddle doesn't run dry
+                            f["hydration"] = min(100.0, f["hydration"] + 12 * dt)
         # arena walls: bounce only when heading into the wall (avoids heading jitter)
         ch, sh = math.cos(f["heading"]), math.sin(f["heading"])
         if (f["x"] <= 3 and ch < 0) or (f["x"] >= W - 3 and ch > 0):
@@ -855,8 +877,10 @@ class World:
         f["x"], f["y"] = min(max(f["x"], 3), W - 3), min(max(f["y"], 3), H - 3)
         f["heading"] = _ang(f["heading"])
         f["energy"] = min(100.0, max(0.0, f["energy"]))
-        # hunger modulates taste gain (a simple neuromodulation stand-in)
+        f["hydration"] = min(100.0, max(0.0, f["hydration"] - 0.15 * dt))
+        # hunger/thirst modulate taste gain (a simple neuromodulation stand-in)
         self.gain["sugar"] = 0.6 + 0.8 * (1 - f["energy"] / 100)
+        self.gain["water"] = 0.6 + 0.8 * (1 - f["hydration"] / 100)
 
     # ---------------------------------------------------------------- experiment mode
     def _rebuild_silence(self):
@@ -1079,7 +1103,10 @@ class World:
                 self.eggs_pending -= 1
                 self.eggs_ready += 1
         if self.eggs_ready >= 1 and f["state"] in ("walk", "feed", "groom"):
-            self.ovi_acc += self.mot_rates["lay"] * dt
+            # dehydration also discourages laying (no real pathway for thirst in this
+            # connectome, unlike sugar/food odour which brake oviDN on their own)
+            thirsty_brake = 1.0 - 0.6 * max(0.0, 1 - f["hydration"] / 40)
+            self.ovi_acc += self.mot_rates["lay"] * dt * thirsty_brake
             if self.ovi_acc > 10.0:
                 x, y = f["x"] - math.cos(f["heading"]) * 6, f["y"] - math.sin(f["heading"]) * 6
                 if self.lay_egg(x, y, mother=0, father=self.fly_sperm):
