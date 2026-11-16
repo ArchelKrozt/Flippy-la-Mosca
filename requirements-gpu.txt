@@ -1,0 +1,4 @@
+# Optional: run the brain on an NVIDIA GPU (flippy/brain_gpu.py). Without this, numba on the CPU.
+# [ctk] brings the CUDA libraries as pip packages: no CUDA Toolkit install needed, only the
+# NVIDIA driver (any recent one for CUDA 12).
+cupy-cuda12x[ctk]>=13

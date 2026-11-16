@@ -79,9 +79,16 @@ from flippy.world import World, TICK_MS  # noqa: E402  (after choosing / checkin
 SAVES = ROOT / "saves"
 SAVES.mkdir(exist_ok=True)
 AUTOSAVE_EVERY_S = 60  # simulated seconds
-sys.stdout.reconfigure(line_buffering=True)  # messages show up even when output goes to a file
+# line buffering: messages show up even when output goes to a file. errors="replace": a
+# Windows console in an old code page prints "?" instead of crashing on ✔ or ñ.
+sys.stdout.reconfigure(line_buffering=True, errors="replace")
 print("Cargando el conectoma (138.639 neuronas, 15 M de conexiones)...")
 world = World(dt=0.2)
+if world.brain.backend == "gpu":
+    from flippy.brain_gpu import device_name  # noqa: E402
+    print(f"Cerebro en la GPU: {device_name()}")
+else:
+    print("Cerebro en la CPU (para usar una GPU NVIDIA: pip install -r requirements-gpu.txt)")
 lock = threading.Lock()
 ctl = dict(paused=False, speed=1.0, ratio=0.0, last_autosave=0.0, error=None)
 

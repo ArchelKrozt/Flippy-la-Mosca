@@ -15,6 +15,11 @@ if [ ! -x .venv/bin/python ]; then
   .venv/bin/python -m pip install -q --upgrade pip
   .venv/bin/python -m pip install -q -r requirements.txt || { echo "No se pudieron instalar las dependencias."; pausa; exit 1; }
 fi
+# Linux with an NVIDIA card: GPU brain (once; if it fails, the CPU is used)
+if command -v nvidia-smi >/dev/null 2>&1 && [ ! -e .venv/gpu-no ] && ! .venv/bin/python -c "import cupy" 2>/dev/null; then
+  echo "Tarjeta NVIDIA detectada: instalando el motor de GPU (2-3 minutos)..."
+  .venv/bin/python -m pip install -q -r requirements-gpu.txt || { echo "Sin motor de GPU: FLIPPY usará la CPU."; touch .venv/gpu-no; }
+fi
 .venv/bin/python download_data.py || { pausa; exit 1; }
 .venv/bin/python server.py
 pausa
