@@ -100,7 +100,7 @@ def write_save(name, auto=False):
     slug = "autosave" if auto else (re.sub(r"[^\w\- ]", "", name, flags=re.U).strip().replace(" ", "_")[:40] or "partida")
     path = SAVES / f"{slug}.json"
     tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, default=float))
+    tmp.write_text(json.dumps(data, ensure_ascii=False, default=float), encoding="utf-8")
     tmp.replace(path)  # atomic: a crash mid-write never leaves a broken save
     return path.name
 
@@ -159,7 +159,7 @@ def sim_loop():
             ctl["last_autosave"] = world.time_ms / 1000
             try:
                 write_save("Autoguardado", auto=True)
-            except OSError as e:
+            except Exception as e:  # never let a bad save kill the simulation thread
                 print("autosave failed:", e)
         el = time.perf_counter() - t0
         budget = TICK_MS / 1000 / ctl["speed"]
@@ -210,7 +210,10 @@ class H(BaseHTTPRequestHandler):
         cmd = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
         c = cmd.get("cmd")
         if c == "save":
-            return self._send({"ok": True, "file": write_save(str(cmd.get("name") or "Partida"))})
+            try:
+                return self._send({"ok": True, "file": write_save(str(cmd.get("name") or "Partida"))})
+            except OSError as e:
+                return self._send({"ok": False, "error": str(e)})
         if c == "shutdown":                        # "save and switch off" button in the page
             ctl["paused"] = True
             name = write_save("Autoguardado", auto=True)
