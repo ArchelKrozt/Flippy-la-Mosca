@@ -10,7 +10,7 @@ The FlyWire brain is from an adult female, so the real fly is female.
 import math
 import numpy as np
 
-from .brain import Brain
+from .brain import make_brain
 from .dolls import Doll, DEFAULT_TRAITS
 from .neurons import load_groups, brain_map, ATTRACTIVE_ORN, AVERSIVE_ORN
 from .memory import MushroomMemory
@@ -69,7 +69,7 @@ class World:
     MATING_S = 6.0
 
     def __init__(self, dt=0.2):
-        self.brain = Brain(dt=dt, params=dict(a_inc=0.5))  # adaptation: see brain.PARAMS
+        self.brain = make_brain(dt=dt, params=dict(a_inc=0.5))  # adaptation: see brain.PARAMS; GPU if any
         self.ann, self.sens_idx, self.mot_idx = load_groups(self.brain)
         self.map_xy = brain_map(self.brain, self.ann)
         self.mem = MushroomMemory(self.brain, self.ann)
@@ -453,7 +453,8 @@ class World:
         self.conc = {"good": tuple(self._field("food", *pts[s]) for s in "LR"),
                      "bad": tuple(self._field("co2", *pts[s], 30) + self._heat_at(*pts[s]) for s in "LR")}
         for s, (px, py) in pts.items():
-            r[f"sugar_{s}"] = 0 if airborne else 110.0 * self._touching("food", px, py) * self.gain["sugar"]
+            # 150 Hz: sugar GRNs on ripe fruit (was 110 with the old, larger 'sugar/water' group)
+            r[f"sugar_{s}"] = 0 if airborne else 150.0 * self._touching("food", px, py) * self.gain["sugar"]
             r[f"bitter_{s}"] = 0 if airborne else 110.0 * self._touching("bitter", px, py) * self.gain["bitter"]
             r[f"odor_good_{s}"] = self._orn(f"good{s}", self._field("food", px, py),
                                             self.gain["odor_good"] * (0.6 + 0.9 * hunger))
@@ -589,7 +590,7 @@ class World:
     def tick(self):
         self.sense()
         if len(self.silenced_idx):                  # silenced neurons can't fire (optogenetic block)
-            self.brain.refr[self.silenced_idx] = 30000
+            self.brain.hold(self.silenced_idx)
         spk = self.brain.step(self.steps_per_tick)
         self.time_ms += TICK_MS
         if len(spk):
@@ -863,7 +864,7 @@ class World:
         self.silenced_idx = np.unique(np.concatenate([e["idx"] for e in self.silenced])) if self.silenced \
             else np.empty(0, np.int64)
         freed = np.setdiff1d(old, self.silenced_idx)
-        self.brain.refr[freed] = 0                    # restored neurons can fire again
+        self.brain.release(freed)                     # restored neurons can fire again
 
     def _region_label(self, idx):
         sc = self.ann.set_index("idx").reindex(idx).super_class.fillna("?")
@@ -1190,7 +1191,7 @@ class World:
             shadows=[{k: round(v, 1) for k, v in s.items()} for s in self.shadows],
             sens={k: round(v, 1) for k, v in self.sens_rates.items()},
             motor={k: round(float(v), 1) for k, v in self.mot_rates.items()},
-            live=int(len(self.brain.live)),
+            live=int(self.brain.n_live()),
             spikes=np.unique(spk)[:4000].tolist(),
             n_spikes=int(len(spk)),
             log=self.log,

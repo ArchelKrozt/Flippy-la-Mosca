@@ -11,11 +11,18 @@ import time
 
 import numpy as np
 
-from .brain import Brain
+from .brain import make_brain
 from .memory import MushroomMemory
 from .neurons import load_groups
 
 results = []
+
+
+def engine(b):
+    if b.backend == "gpu":
+        from .brain_gpu import device_name
+        return f"GPU · {device_name()}"
+    return "numba" if hasattr(b, "_live_buf") else "numpy"
 
 
 def check(name, ok, detail):
@@ -25,7 +32,7 @@ def check(name, ok, detail):
 
 def main():
     t0 = time.time()
-    b = Brain(dt=0.2, params=dict(a_inc=0.5))
+    b = make_brain(dt=0.2, params=dict(a_inc=0.5))
     ann, S, M = load_groups(b)
     cat = lambda *k: np.concatenate([S[x] for x in k])   # noqa: E731
     g = lambda q: ann.query(q).idx.to_numpy()             # noqa: E731
@@ -39,11 +46,11 @@ def main():
         return b.spike_count / (steps * b.dt / 1000)      # Hz
 
     print(f"Cerebro cargado: {b.n:,} neuronas, {len(b.indices):,} conexiones "
-          f"(motor {'numba' if hasattr(b, '_live_buf') else 'numpy'})\n")
+          f"(motor {engine(b)})\n")
 
-    hz = run([(cat("sugar_L", "sugar_R"), 100)])
-    check("Azúcar → MN9 (comer)", hz[M["feed"]][:2].mean() > 20,
-          f"MN9 {hz[M['feed']][:2].mean():.0f} Hz (Shiu et al. 2024)")
+    # 150 Hz = what food gives in the game; 3 seeds: a single run varies by ±5 Hz
+    mn9 = np.mean([run([(cat("sugar_L", "sugar_R"), 150)], seed=s)[M["feed"]][:2].mean() for s in range(3)])
+    check("Azúcar → MN9 (comer)", mn9 > 20, f"MN9 {mn9:.0f} Hz (Shiu et al. 2024)")
 
     hz = run([(cat("loom_L", "loom_R"), 100)], steps=2500)
     check("Sombra que se acerca → fibra gigante (escape)", hz[M["escape"]].mean() > 20,

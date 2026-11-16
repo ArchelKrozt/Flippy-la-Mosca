@@ -13,8 +13,11 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 _SHIU = "https://github.com/philshiu/Drosophila_brain_model/raw/main"
 _LEE = "https://storage.googleapis.com/lee-lab_brain-and-nerve-cord-fly-connectome/compiled_data"
 _JAN = "https://storage.googleapis.com/flyem-male-cns/v1.0/connectome-data/flat-connectome"
-_ANN = ("https://raw.githubusercontent.com/flyconnectome/flywire_annotations/main/supplemental_files/"
-        "Supplemental_file1_neuron_annotations.tsv")
+# Pinned to a commit, not `main`: the annotations keep evolving and a renamed class once
+# left Flippy without any sugar neurons (2026-09, 'sugar/water' split into sugar, water...).
+_ANN_COMMIT = "a83b2776d60d5764cef36b927f5f9679c16c47a2"   # 2026-09-29, Tastekin et al. 2026
+_ANN = (f"https://raw.githubusercontent.com/flyconnectome/flywire_annotations/{_ANN_COMMIT}/"
+        "supplemental_files/Supplemental_file1_neuron_annotations.tsv")
 
 # files: (file name, url, minimum size in bytes, first bytes of a valid file)
 MODELS = {

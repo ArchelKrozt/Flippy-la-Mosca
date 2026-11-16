@@ -12,9 +12,17 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 ATTRACTIVE_ORN = ["ORN_DM1", "ORN_DM4", "ORN_DP1m", "ORN_VM7d"]  # vinegar / fruit
 AVERSIVE_ORN = ["ORN_V", "ORN_DA2"]  # CO2, geosmin
 
+# Taste of food (ripe fruit: sugar AND water). The FlyWire annotations of 2026-09
+# (Tastekin et al. 2026) split the old 'sugar/water' class into sugar (LB3c),
+# sugar/low_salt (LB3b), water (LB3a), high_salt/heavy_metal (LB3d) and others. The old
+# group therefore also fired the high-salt neurons whenever Flippy ate; now food tastes
+# only of sugar and water. 'sugar/water' is kept so an annotations.tsv downloaded before
+# that change still works.
+SUGAR = "['sugar', 'sugar/low_salt', 'water', 'sugar/water']"
+
 SENSORY = {  # name -> query ; *_L/*_R are the two sides of the body
-    "sugar_L": "cell_sub_class=='sugar/water' and side=='left'",
-    "sugar_R": "cell_sub_class=='sugar/water' and side=='right'",
+    "sugar_L": f"cell_sub_class in {SUGAR} and side=='left'",
+    "sugar_R": f"cell_sub_class in {SUGAR} and side=='right'",
     "bitter_L": "cell_sub_class=='bitter' and side=='left'",
     "bitter_R": "cell_sub_class=='bitter' and side=='right'",
     "odor_good_L": f"cell_type in {ATTRACTIVE_ORN} and side=='left'",

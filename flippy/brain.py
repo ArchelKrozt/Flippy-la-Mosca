@@ -51,7 +51,23 @@ def build_cache():
     np.savez(CACHE, indptr=indptr, indices=post, weights=w, root_ids=comp.index.to_numpy(np.int64))
 
 
+def make_brain(**kw):
+    """The fastest brain this machine can run: NVIDIA GPU (CuPy) if there is one,
+    otherwise numba, otherwise plain numpy. FLIPPY_GPU=0 forces the CPU."""
+    import os
+    if os.environ.get("FLIPPY_GPU", "1") != "0":
+        try:
+            from . import brain_gpu
+        except ImportError:          # CuPy not installed: requirements-gpu.txt
+            brain_gpu = None
+        if brain_gpu is not None and brain_gpu.available():
+            return brain_gpu.GpuBrain(**kw)
+    return Brain(**kw)
+
+
 class Brain:
+    backend = "cpu"
+
     def __init__(self, dt=0.1, params=None, seed=0, fix_signs=True):
         if not CACHE.exists():
             build_cache()
@@ -113,6 +129,22 @@ class Brain:
         self.t = 0
         self.stim = {}  # name -> (idx array, rate Hz) Poisson drive
         self.spike_count = np.zeros(n, np.int32)
+
+    # --- small API shared with GpuBrain (brain_gpu.py), so callers don't touch arrays
+    def hold(self, idx, steps=30000):
+        """Keep these neurons refractory (optogenetic silencing); call every tick."""
+        self.refr[np.asarray(idx, np.int64)] = steps
+
+    def release(self, idx):
+        self.refr[np.asarray(idx, np.int64)] = 0
+
+    def n_live(self):
+        """Neurons away from rest right now."""
+        return len(self.live)
+
+    def watch_weights(self, edge_idx):
+        """Edges whose weights change at run time (plasticity). Here weights are used in
+        place, so nothing to do; the GPU brain re-uploads them."""
 
     def idx(self, root_ids):
         return np.array([self.id2idx[int(r)] for r in root_ids if int(r) in self.id2idx], np.int64)

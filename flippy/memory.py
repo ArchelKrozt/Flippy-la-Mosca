@@ -78,6 +78,7 @@ class MushroomMemory:
         self.ppl1 = np.concatenate([d for d, f in zip(self.dan_of_comp, self.comp_fam) if f == 0])
         self.pam = np.concatenate([d for d, f in zip(self.dan_of_comp, self.comp_fam) if f == 1])
         self.w0 = brain.weights[self.e_idx].copy()
+        brain.watch_weights(self.e_idx)             # these synapses learn (GPU: re-uploaded)
         self.reset()
 
     def reset(self):
